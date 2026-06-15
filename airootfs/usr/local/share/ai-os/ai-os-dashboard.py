@@ -899,7 +899,9 @@ class Dashboard:
         root.bind("<Configure>", self._relayout)
         root.after(200, self._relayout)
         log_event("dashboard_started", "AI OS dashboard opened (sketch layout)", kind="system")
-        self.show_welcome()
+        # Boot straight into the to-do list — it's the heart of the OS. The
+        # welcome/empty-space view still shows when you close an app or terminal.
+        self.open_eisenhower()
 
     # ---- footer: volume + power controls ----
     def _build_footer(self, root):
@@ -2196,6 +2198,14 @@ class Dashboard:
         tb(row2, "⟳ Refresh", lambda: self._eisen_refresh())
         tb(row2, "Review Training QA Reports", self.review_training_qa_reports)
         tb(row2, "Export Training Data", self.export_training_data)
+
+        # One-line orientation so first-time users know the core loop now that
+        # this view is the boot default (replaces the old welcome screen).
+        tk.Label(self.content,
+                 text="Tip: pick a task, then \"Open Project Terminal\" to work on it in its own folder. "
+                      "Everything you do is logged locally as training data.",
+                 bg=PANEL, fg=BODY, font=(FONT, 10), anchor="w",
+                 justify="left").pack(fill="x", padx=12, pady=(2, 0))
 
         grid = tk.Frame(self.content, bg=PANEL)
         grid.pack(fill="both", expand=True, padx=8, pady=8)
