@@ -1,21 +1,68 @@
 #!/usr/bin/env bash
-# ai-os-update — Ascended Barron: GroundTruth OS in-place updater.
+# ai-os-update — Ascended Barron: GroundTruth OS in-place updater (v1.1.0+).
 #
-# Pulls the latest published app code from the public GitHub repo and installs
-# it over the current copy, AFTER backing up what it replaces. It touches ONLY
-# the OS's own app files under /usr/local (the dashboard + the ai-os-* helpers
-# and libraries) — never your projects, your data, your settings, or system
-# packages. Your work in ~/workspace is left completely alone.
+# Pulls the latest PUBLISHED release (a git tag) from the public repo over HTTPS
+# and installs it over the current copy, AFTER backing up what it replaces.
+# It touches ONLY the OS's own app files under /usr/local (the dashboard + the
+# ai-os-* helpers and libraries) — never your projects, your data, your
+# settings, or system packages. Your work in ~/workspace is left completely
+# alone.
+#
+# What's new vs the v1.0.2 updater (all per the locked v1.1.0 decisions):
+#   - tracks the latest RELEASE TAG, not the main branch tip            (Q1)
+#   - re-execs itself from a temp copy so it can safely replace itself   (Q10)
+#   - refuses to run twice at once (lock file)                          (Q47)
+#   - skips work when already up to date                                (Q16)
+#   - warns before overwriting files YOU changed (manifest hashes)      (Q12/Q40)
+#   - removes app files dropped in the new version (manifest sync)      (Q2)
+#   - stages + verifies a complete copy, then applies                   (Q18)
+#   - keeps only the last 3 backups                                     (Q3)
+#   - records tag + commit as the version marker                        (Q54)
+#   - appends one concise line to a local update history log            (Q23/Q50)
+#   - relaunches the dashboard explicitly via a restart sentinel        (Q7)
 set -uo pipefail
 
 REPO_URL="https://github.com/jackwayne234/Ascended-Barron-Groundtruth-OS.git"
 CACHE="$HOME/.cache/ai-os/update"
 CLONE="$CACHE/repo"
+STAGE="$CACHE/stage"
+LOCK="$CACHE/.lock"
+RESTART_SENTINEL="$HOME/.cache/ai-os/restart-dashboard"
 STAMP="$(date +%Y%m%d-%H%M%S)"
-BACKUP="$HOME/.local/share/ai-os/update-backups/$STAMP"
+BACKUP_ROOT="$HOME/.local/share/ai-os/update-backups"
+BACKUP="$BACKUP_ROOT/$STAMP"
+HISTORY="$HOME/.local/share/ai-os/update-history.jsonl"
+DASH_DIR="/usr/local/share/ai-os"
+MANIFEST_NAME="MANIFEST.sha256"
+KEEP_BACKUPS=3
+
+# Managed install roots — the ONLY things this updater ever writes.
+MANAGED_SHARE="/usr/local/share/ai-os"
+MANAGED_LIB="/usr/local/lib/ai-os"
 
 say(){ printf '%s\n' "$*"; }
 die(){ say ""; say "✗ $*"; say ""; read -rp "Press Enter to close..." _; exit 1; }
+
+# ---- 0) re-exec from a temp copy so we can safely overwrite ourselves (Q10) --
+# Bash reads scripts lazily; replacing this file mid-run can corrupt execution.
+# Copy ourselves to a temp path and hand off, unless we're already that copy.
+if [ "${AI_OS_UPDATE_REEXEC:-}" != "1" ]; then
+  _self="$(readlink -f "$0")"
+  _tmp="$(mktemp /tmp/ai-os-update.XXXXXX)" || _tmp=""
+  if [ -n "$_tmp" ] && cp "$_self" "$_tmp" 2>/dev/null; then
+    chmod +x "$_tmp"
+    export AI_OS_UPDATE_REEXEC=1
+    exec "$_tmp" "$@"
+  fi
+  # If the copy failed for any reason, fall through and run in place.
+fi
+
+# ---- 1) single-instance lock (Q47) ------------------------------------------
+mkdir -p "$CACHE"
+exec 9>"$LOCK"
+if ! flock -n 9; then
+  die "An update is already in progress in another window."
+fi
 
 clear 2>/dev/null || true
 say "Ascended Barron: GroundTruth OS — Update"
@@ -24,39 +71,105 @@ say ""
 
 command -v git >/dev/null 2>&1 || die "git isn't installed, so the updater can't run."
 
-# 1) Fetch the latest published code (HTTPS, only ever from this one repo).
-say "Checking GitHub for the latest version..."
-mkdir -p "$CACHE"
+# ---- 2) find the latest published RELEASE TAG (Q1) --------------------------
+say "Checking GitHub for the latest released version..."
+# List version tags (vMAJOR.MINOR.PATCH), strip the deref (^{}) entries, pick
+# the highest by version sort. Pre-release tags (v1.2.0-rc1) are ignored here.
+LATEST_TAG="$(git ls-remote --tags --refs "$REPO_URL" 2>/dev/null \
+  | sed -n 's#.*refs/tags/\(v[0-9][0-9.]*\)$#\1#p' \
+  | sort -V | tail -n1)"
+[ -n "$LATEST_TAG" ] || die "Couldn't reach GitHub or find a release. Check your internet connection and try again."
+say "Latest release: $LATEST_TAG"
+
+# ---- 3) fetch that exact tag into the cache ---------------------------------
 if [ -d "$CLONE/.git" ]; then
   git -C "$CLONE" remote set-url origin "$REPO_URL" 2>/dev/null
-  git -C "$CLONE" fetch --depth 1 origin main -q || die "Couldn't reach GitHub. Check your internet connection and try again."
-  git -C "$CLONE" reset --hard origin/main -q   || die "Couldn't apply the downloaded update."
+  git -C "$CLONE" fetch --depth 1 origin "refs/tags/$LATEST_TAG:refs/tags/$LATEST_TAG" -q \
+    || die "Couldn't download the update. Check your internet connection and try again."
 else
   rm -rf "$CLONE"
-  git clone --depth 1 "$REPO_URL" "$CLONE" -q   || die "Couldn't download the update. Check your internet connection and try again."
+  git clone --depth 1 --branch "$LATEST_TAG" "$REPO_URL" "$CLONE" -q \
+    || die "Couldn't download the update. Check your internet connection and try again."
 fi
+git -C "$CLONE" checkout -q "tags/$LATEST_TAG" 2>/dev/null \
+  || git -C "$CLONE" -c advice.detachedHead=false checkout -q "$LATEST_TAG" 2>/dev/null || true
 
+NEW_REV="$(git -C "$CLONE" rev-list -n1 "$LATEST_TAG" 2>/dev/null || git -C "$CLONE" rev-parse HEAD)"
+SHORT_REV="$(printf '%s' "$NEW_REV" | cut -c1-7)"
 SRC="$CLONE/airootfs"
 [ -d "$SRC/usr/local/share/ai-os" ] || die "The downloaded copy looks wrong (no dashboard found). Stopping to be safe — nothing was changed."
-NEW_REV="$(git -C "$CLONE" rev-parse --short HEAD 2>/dev/null || echo unknown)"
-say "Latest version: $NEW_REV"
+
+# ---- 4) already up to date? (Q16) -------------------------------------------
+CUR_REV=""
+[ -f "$DASH_DIR/INSTALLED_REV" ] && CUR_REV="$(tr -d '[:space:]' < "$DASH_DIR/INSTALLED_REV" 2>/dev/null)"
+if [ -n "$CUR_REV" ] && [ "$CUR_REV" = "$NEW_REV" ]; then
+  say ""
+  say "✓ You're already up to date — running $LATEST_TAG ($SHORT_REV)."
+  say ""
+  read -rp "Press Enter to close..." _
+  exit 0
+fi
+
+# ---- 5) warn about locally-modified app files before overwriting (Q12/Q40) --
+# Uses the SHA256 manifest shipped with the CURRENTLY installed version. Any
+# managed file whose hash no longer matches has been changed locally (e.g. a
+# self-modification) and would be overwritten (it IS backed up first).
+modified=()
+CUR_MANIFEST="$DASH_DIR/$MANIFEST_NAME"
+if [ -f "$CUR_MANIFEST" ]; then
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    want="${line%% *}"
+    rel="${line#* }"; rel="${rel#"${rel%%[! ]*}"}"   # strip leading spaces
+    sysf="/$rel"
+    [ -f "$sysf" ] || continue
+    have="$(sha256sum "$sysf" 2>/dev/null | cut -d' ' -f1)"
+    [ -n "$have" ] && [ "$have" != "$want" ] && modified+=("$sysf")
+  done < "$CUR_MANIFEST"
+fi
+if [ "${#modified[@]}" -gt 0 ]; then
+  say ""
+  say "⚠ These OS files look locally modified and WILL be replaced by the update"
+  say "  (a backup is saved first, so you can undo with 'Undo last update'):"
+  for m in "${modified[@]}"; do say "    $m"; done
+  say ""
+  read -rp "Type 'yes' to update anyway, or anything else to cancel: " ans
+  [ "$ans" = "yes" ] || { say "Cancelled — nothing was changed."; exit 0; }
+fi
+
 say ""
 
-# 2) Back up exactly what we're about to replace (so an update can be undone).
+# ---- 6) back up exactly what we're about to replace -------------------------
 say "Backing up current app files to:"
 say "  ${BACKUP/#$HOME/~}"
-for d in /usr/local/share/ai-os /usr/local/lib/ai-os; do
+for d in "$MANAGED_SHARE" "$MANAGED_LIB"; do
   if [ -e "$d" ]; then mkdir -p "$BACKUP$(dirname "$d")" && cp -a "$d" "$BACKUP$(dirname "$d")/" 2>/dev/null; fi
 done
 mkdir -p "$BACKUP/usr/local/bin"
-for f in /usr/local/bin/ai-os-*; do
+for f in /usr/local/bin/ai-os-* /usr/local/bin/start-ai-os-*; do
   [ -e "$f" ] && cp -a "$f" "$BACKUP/usr/local/bin/" 2>/dev/null
 done
+# Record what version this backup represents, for rollback (Q41).
+{ [ -f "$DASH_DIR/INSTALLED_REV" ] && cat "$DASH_DIR/INSTALLED_REV"; } 2>/dev/null > "$BACKUP/.from_rev" || true
+{ [ -f "$DASH_DIR/INSTALLED_VERSION" ] && cat "$DASH_DIR/INSTALLED_VERSION"; } 2>/dev/null > "$BACKUP/.from_version" || true
+
+# prune to the most recent $KEEP_BACKUPS (Q3)
+if [ -d "$BACKUP_ROOT" ]; then
+  # shellcheck disable=SC2012
+  ls -1d "$BACKUP_ROOT"/*/ 2>/dev/null | sort | head -n -"$KEEP_BACKUPS" | while IFS= read -r old; do
+    rm -rf "$old"
+  done
+fi
 say ""
 
-# 3) Install the new app files as root. Copies in place; never deletes, so any
-#    private/local extras you've added are kept.
-sync_tree(){  # $1 = source dir in the clone, $2 = system dir
+# ---- 7) stage the new tree and verify it's complete (Q18) -------------------
+say "Preparing the update..."
+rm -rf "$STAGE"; mkdir -p "$STAGE"
+cp -a "$SRC/usr" "$STAGE/" 2>/dev/null || die "Couldn't stage the update. Nothing was changed."
+[ -f "$STAGE/usr/local/share/ai-os/ai-os-dashboard.py" ] || die "Staged update is incomplete (no dashboard). Nothing was changed."
+
+# ---- 8) apply: copy managed trees + bin/ai-os-* as root ---------------------
+sync_tree(){  # $1 = staged source dir, $2 = system dir
   sudo mkdir -p "$2"                              || return 1
   sudo cp -rf "$1/." "$2/"                        || return 1
   sudo chown -R root:root "$2"                    || return 1
@@ -64,22 +177,62 @@ sync_tree(){  # $1 = source dir in the clone, $2 = system dir
 }
 
 say "Installing the update..."
-sync_tree "$SRC/usr/local/share/ai-os" /usr/local/share/ai-os || die "Install failed while copying the dashboard. Your backup is at ${BACKUP/#$HOME/~}."
-if [ -d "$SRC/usr/local/lib/ai-os" ]; then
-  sync_tree "$SRC/usr/local/lib/ai-os" /usr/local/lib/ai-os || die "Install failed while copying the libraries. Your backup is at ${BACKUP/#$HOME/~}."
+sync_tree "$STAGE/usr/local/share/ai-os" "$MANAGED_SHARE" || die "Install failed while copying the dashboard. Your backup is at ${BACKUP/#$HOME/~}."
+if [ -d "$STAGE/usr/local/lib/ai-os" ]; then
+  sync_tree "$STAGE/usr/local/lib/ai-os" "$MANAGED_LIB" || die "Install failed while copying the libraries. Your backup is at ${BACKUP/#$HOME/~}."
 fi
-for f in "$SRC"/usr/local/bin/ai-os-*; do
+for f in "$STAGE"/usr/local/bin/ai-os-* "$STAGE"/usr/local/bin/start-ai-os-*; do
   [ -e "$f" ] && sudo install -o root -g root -m 755 "$f" "/usr/local/bin/$(basename "$f")"
 done
+
+# ---- 9) manifest sync: remove managed files dropped in the new version (Q2)-
+# Only ever removes files UNDER the managed roots that the NEW manifest no
+# longer lists. Never touches ~/workspace, user data, or anything off-list.
+NEW_MANIFEST="$STAGE/usr/local/share/ai-os/$MANIFEST_NAME"
+if [ -f "$NEW_MANIFEST" ]; then
+  # Build the set of paths the new version expects (absolute).
+  newset="$(mktemp)"; : >"$newset"
+  while IFS= read -r line; do
+    rel="${line#* }"; rel="${rel#"${rel%%[! ]*}"}"
+    [ -n "$rel" ] && printf '/%s\n' "$rel" >>"$newset"
+  done < "$NEW_MANIFEST"
+  # Snapshot the currently-installed managed files into a temp list.
+  instset="$(mktemp)"; : >"$instset"
+  find "$MANAGED_SHARE" "$MANAGED_LIB" -type f 2>/dev/null >>"$instset"
+  ls -1 /usr/local/bin/ai-os-* /usr/local/bin/start-ai-os-* 2>/dev/null >>"$instset"
+  # Walk it; remove any installed managed file the new version no longer lists.
+  while IFS= read -r installed; do
+    [ -n "$installed" ] || continue
+    case "$installed" in
+      "$MANAGED_SHARE/$MANIFEST_NAME"|"$DASH_DIR/INSTALLED_REV"|"$DASH_DIR/INSTALLED_VERSION") continue ;;
+    esac
+    grep -qxF "$installed" "$newset" || { say "  removing dropped file: $installed"; sudo rm -f "$installed"; }
+  done < "$instset"
+  rm -f "$newset" "$instset"
+fi
+
 # Drop stale compiled bytecode so the new source actually loads.
 sudo rm -rf /usr/local/share/ai-os/__pycache__ /usr/local/lib/ai-os/*/__pycache__ 2>/dev/null || true
 
-# Record the installed commit (full SHA) so the dashboard knows when it's behind.
-git -C "$CLONE" rev-parse HEAD | sudo tee /usr/local/share/ai-os/INSTALLED_REV >/dev/null 2>&1 || true
+# ---- 10) record the installed version: tag + commit (Q54) -------------------
+printf '%s\n' "$NEW_REV"   | sudo tee "$DASH_DIR/INSTALLED_REV"     >/dev/null 2>&1 || true
+printf '%s\n' "$LATEST_TAG" | sudo tee "$DASH_DIR/INSTALLED_VERSION" >/dev/null 2>&1 || true
+
+# ---- 11) append one concise line to the local update history (Q23/Q50) ------
+mkdir -p "$(dirname "$HISTORY")"
+printf '{"at":"%s","event":"update","from":"%s","to":"%s","commit":"%s","backup":"%s","result":"ok"}\n' \
+  "$(date -u +%FT%TZ)" "${CUR_REV:-unknown}" "$LATEST_TAG" "$SHORT_REV" "${BACKUP/#$HOME/~}" >> "$HISTORY" 2>/dev/null || true
 
 say ""
-say "✓ Update complete — now on version $NEW_REV."
+say "✓ Update complete — now on $LATEST_TAG ($SHORT_REV)."
 say ""
 say "The new version loads when the dashboard restarts."
 read -rp "Press Enter to restart now (the screen will blink), or close this window to do it later... " _
+
+# ---- 12) explicit, robust restart (Q7) --------------------------------------
+# Drop a sentinel the launcher checks; relaunching directly (no full X teardown)
+# avoids the black-screen risk of kill-and-hope. The launcher loop relaunches
+# the dashboard when this file is present, then removes it.
+mkdir -p "$(dirname "$RESTART_SENTINEL")"
+: > "$RESTART_SENTINEL"
 pkill -TERM -f "[a]i-os-dashboard.py" 2>/dev/null || true

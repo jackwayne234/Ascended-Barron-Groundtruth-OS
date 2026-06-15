@@ -10,6 +10,7 @@ Design notes:
 - Footer holds the machine controls: volume slider, Restart, Power Off.
 """
 import os
+import re
 import json
 import time
 import uuid
@@ -40,7 +41,7 @@ AMBER = "#d97706"   # "update available" highlight on the Update OS tile
 FONT = "DejaVu Sans"
 HOME = pathlib.Path.home()
 WORKSPACE = HOME / "workspace"
-WORK_ZONE_TITLE = "Empty space for your windows"
+WORK_ZONE_TITLE = ""   # default: no title bar; specific screens (Settings, etc.) override
 # Where the AI OS logging module (ai_big_log) is installed. Ships with the OS;
 # the import below fails soft if it is absent (training-data buttons then no-op).
 AI_OS_LIB_DIR = pathlib.Path("/usr/local/lib/ai-os")
@@ -78,10 +79,17 @@ STATE_DIR = HOME / ".local" / "state" / "ai-os"
 # The log lives in a fixed per-user data dir (no hard-coded project folder).
 SESSION_ID = uuid.uuid4().hex[:8]
 DASH_DIR = pathlib.Path(__file__).resolve().parent
-# Self-update: the public repo the "Update OS" tile pulls from, and the file
-# that records the installed commit (written by ai-os-update, stamped at build).
+# Self-update: the public repo the "Update OS" tile pulls from, and the files
+# that record the installed version (written by ai-os-update, stamped at build).
 UPDATE_REPO = "https://github.com/jackwayne234/Ascended-Barron-Groundtruth-OS.git"
-INSTALLED_REV_FILE = DASH_DIR / "INSTALLED_REV"
+INSTALLED_REV_FILE = DASH_DIR / "INSTALLED_REV"          # full commit SHA
+INSTALLED_VERSION_FILE = DASH_DIR / "INSTALLED_VERSION"  # release tag, e.g. v1.1.0 (Q54)
+# User settings (update-check opt-out, banner-dismiss state, …) live here — user
+# data the updater never touches (Q29).
+CONFIG_DIR = HOME / ".config" / "ai-os"
+SETTINGS_FILE = CONFIG_DIR / "settings.json"
+# Where ai-os-update saves the pre-update backups (undo is offered when present).
+UPDATE_BACKUP_DIR = HOME / ".local" / "share" / "ai-os" / "update-backups"
 # In VM mode DASH_DIR is read-only squashfs, so the fallback log lives in the
 # writable state dir instead; on the host it stays beside the script (unchanged).
 LOG_DIR = (STATE_DIR / "logs") if VM else (DASH_DIR / "logs")
@@ -89,7 +97,6 @@ LOG_PATH = LOG_DIR / "interactions.jsonl"  # legacy history + fallback only
 BIG_LOG_DIR = HOME / ".local" / "share" / "ai-os" / "big-log"
 BIG_LOG_PATH = BIG_LOG_DIR / "logs" / "ai-big-log.jsonl"
 SESSIONS_DIR = BIG_LOG_DIR / "sessions"  # raw AI terminal transcripts (any AI)
-TRAINING_QA_REPORT_DIR = BIG_LOG_DIR / "reports"
 EVENTS = []  # recent records this session; the Logs panel also reads the file
 
 try:  # reuse the big log's redaction rules so dashboard events match its policy
@@ -813,6 +820,86 @@ def embeddable(wid):
     return "mutter" not in cls and "gnome-shell" not in cls
 
 
+# ---------- settings (user prefs; updater never touches these) — Q29 ----------
+def load_settings():
+    try:
+        return json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def save_settings(s):
+    try:
+        SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        SETTINGS_FILE.write_text(json.dumps(s, indent=2, sort_keys=True), encoding="utf-8")
+        return True
+    except Exception:
+        return False
+
+
+def get_setting(key, default=None):
+    return load_settings().get(key, default)
+
+
+def set_setting(key, value):
+    s = load_settings()
+    s[key] = value
+    save_settings(s)
+
+
+# ---------- version helpers (self-update) — Q30/Q54 ---------------------------
+def installed_version_str():
+    """The friendly release name (e.g. v1.1.0). Falls back to a short commit or
+    'unknown' on older/dev builds that predate the version marker."""
+    try:
+        v = INSTALLED_VERSION_FILE.read_text(encoding="utf-8").strip()
+        if v:
+            return v
+    except Exception:
+        pass
+    try:
+        rev = INSTALLED_REV_FILE.read_text(encoding="utf-8").strip().split()[0]
+        if rev:
+            return rev[:7]
+    except Exception:
+        pass
+    return "unknown"
+
+
+def parse_version(s):
+    """'v1.2.3' -> (1,2,3); None if it isn't a plain release tag (e.g. dev-…)."""
+    if not s:
+        return None
+    m = re.match(r"^v(\d+)\.(\d+)\.(\d+)$", s.strip())
+    return tuple(int(g) for g in m.groups()) if m else None
+
+
+def latest_remote_release():
+    """Highest published release tag (vX.Y.Z) on GitHub, or None. Pre-release
+    tags (e.g. -rc1) are ignored. One small, quiet network call (Q1)."""
+    try:
+        out = subprocess.check_output(
+            ["git", "ls-remote", "--tags", "--refs", UPDATE_REPO],
+            timeout=20, text=True, stderr=subprocess.DEVNULL)
+    except Exception:
+        return None
+    best = None
+    for line in out.splitlines():
+        ref = line.split("refs/tags/")[-1].strip() if "refs/tags/" in line else ""
+        v = parse_version(ref)
+        if v and (best is None or v > best[0]):
+            best = (v, ref)
+    return best[1] if best else None
+
+
+def has_update_backup():
+    """True if ai-os-update has a backup to undo (Q57 greys the button otherwise)."""
+    try:
+        return any(p.is_dir() for p in UPDATE_BACKUP_DIR.iterdir())
+    except Exception:
+        return False
+
+
 class Dashboard:
     """Layout matches the user's paper sketch (IMG_0622): left column =
     app tiles + 7-day forecast; right side = one big terminal / interactive app
@@ -871,6 +958,11 @@ class Dashboard:
                                    font=(FONT, 11, "bold"), pady=6, anchor="w", padx=16)
         self.status_bar.pack(fill="x")
 
+        # Thin "update available" banner — dismissible per-version (Q17/Q33).
+        # Created here so it always slots directly under the status bar; it is
+        # packed/unpacked on demand by _refresh_update_banner (empty until then).
+        self.update_banner = tk.Frame(root, bg=AMBER)
+
         # Bottom bars are packed BEFORE the main area (with side="bottom") so
         # a tall right pane (e.g. the full Eisenhower matrix) compresses
         # instead of pushing them off the screen — pack clips whatever was
@@ -892,8 +984,18 @@ class Dashboard:
         right = tk.Frame(main, bg=PANEL, highlightbackground="#1e3a5f", highlightthickness=1)
         right.pack(side="left", fill="both", expand=True, padx=(6, 12), pady=10)
         self.pane_title = tk.StringVar(value=WORK_ZONE_TITLE)
-        tk.Label(right, textvariable=self.pane_title, bg=HEAD, fg=INK,
-                 font=(FONT, 13, "bold"), pady=8, padx=14, anchor="w").pack(fill="x")
+        self.pane_title_label = tk.Label(right, textvariable=self.pane_title, bg=HEAD, fg=INK,
+                                          font=(FONT, 13, "bold"), pady=8, padx=14, anchor="w")
+        # Auto-show the title bar when a non-empty title is set, hide it when
+        # the title is cleared. Welcome (no title) → no header bar; Settings
+        # (title="Settings") → header shows. Avoids an empty bar at the top.
+        def _sync_pane_title_label(*_):
+            if self.pane_title.get():
+                if not self.pane_title_label.winfo_ismapped():
+                    self.pane_title_label.pack(fill="x")
+            else:
+                self.pane_title_label.pack_forget()
+        self.pane_title.trace_add("write", _sync_pane_title_label)
         self.content = tk.Frame(right, bg=PANEL)
         self.content.pack(fill="both", expand=True)
 
@@ -907,9 +1009,11 @@ class Dashboard:
         # Boot straight into the to-do list — it's the heart of the OS. The
         # welcome/empty-space view still shows when you close an app or terminal.
         self.open_eisenhower()
-        # Quietly check GitHub for a newer version; the Update OS tile turns
-        # amber if one is available. Delayed + threaded so it never slows boot.
+        # Quietly check GitHub for a newer release; the Update OS tile turns
+        # amber + a banner shows if one is available. Delayed + threaded so it
+        # never slows boot.
         self.update_available = False
+        self.latest_version = None
         self.root.after(3000, self._schedule_update_check)
 
     # ---- self-update: is a newer version available? ----
@@ -919,30 +1023,128 @@ class Dashboard:
         self.root.after(6 * 60 * 60 * 1000, self._schedule_update_check)
 
     def _update_check_worker(self):
-        """Compare the installed commit against the repo's latest. Fail silent
-        (no network / no baseline = leave the tile alone — never a false alarm)."""
-        try:
-            local = INSTALLED_REV_FILE.read_text(encoding="utf-8").strip().split()[0]
-        except Exception:
-            local = ""
-        if not local:
-            return  # unknown baseline (e.g. pre-update-feature ISO) — don't flag
-        try:
-            out = subprocess.check_output(
-                ["git", "ls-remote", UPDATE_REPO, "refs/heads/main"],
-                timeout=20, text=True, stderr=subprocess.DEVNULL)
-            remote = out.split()[0] if out.strip() else ""
-        except Exception:
-            return  # offline or git unavailable — stay quiet
-        if remote and remote != local and not remote.startswith(local):
+        """Compare the installed RELEASE TAG against the latest published one.
+        Fail silent (opt-out / no network / dev build = leave things alone, never
+        a false alarm). Q1/Q8."""
+        if not get_setting("update_check_enabled", True):
+            return  # the user turned the update check off (Q8)
+        local = parse_version(installed_version_str())
+        if local is None:
+            return  # dev/unknown build — don't flag
+        latest = latest_remote_release()
+        lv = parse_version(latest or "")
+        if lv and lv > local:
+            self.latest_version = latest
             self.root.after(0, self._set_update_available)
 
     def _set_update_available(self):
         if not getattr(self, "update_available", False):
             self.update_available = True
-            log_event("update_available", "a newer version is on GitHub", kind="system")
+            log_event("update_available",
+                      f"a newer version is on GitHub ({getattr(self, 'latest_version', '?')})",
+                      kind="system")
             if hasattr(self, "app_grid"):
                 self._draw_app_tiles()
+            self._refresh_update_banner()
+
+    # ---- self-update: banner, settings (Q17/Q43/Q56) ----
+    def _refresh_update_banner(self):
+        """Show/hide the thin 'update available' banner. Dismiss hides it for the
+        current version; it returns only when a newer version appears (Q17/Q33)."""
+        if not hasattr(self, "update_banner"):
+            return
+        for w in self.update_banner.winfo_children():
+            w.destroy()
+        latest = getattr(self, "latest_version", None)
+        dismissed = get_setting("banner_dismissed_version", "")
+        if not (getattr(self, "update_available", False) and latest and dismissed != latest):
+            self.update_banner.pack_forget()
+            return
+        tk.Label(self.update_banner,
+                 text=f"  A new version ({latest}) is available — open “Update OS” to get it.",
+                 bg=AMBER, fg="#1a1206", font=(FONT, 10, "bold"), anchor="w"
+                 ).pack(side="left", fill="x", expand=True, pady=4)
+        tk.Button(self.update_banner, text="Update OS",
+                  command=lambda: self.open_setup_script("Update OS", "/usr/local/bin/ai-os-update"),
+                  bg="#1a1206", fg=INK, font=(FONT, 9, "bold"), relief="flat",
+                  padx=8, pady=1, cursor="hand2").pack(side="right", padx=(4, 6), pady=4)
+        tk.Button(self.update_banner, text="✕", command=self._dismiss_update_banner,
+                  bg=AMBER, fg="#1a1206", font=(FONT, 10, "bold"), relief="flat",
+                  padx=6, pady=1, cursor="hand2").pack(side="right", pady=4)
+        self.update_banner.pack(fill="x", after=self.status_bar)
+
+    def _dismiss_update_banner(self):
+        latest = getattr(self, "latest_version", "")
+        if latest:
+            set_setting("banner_dismissed_version", latest)
+        self._refresh_update_banner()
+
+    def _check_updates_now(self):
+        """Manual 'Check for updates now' (Q56) — same check, on demand."""
+        self._flash("Checking for updates…")
+
+        def worker():
+            latest = latest_remote_release()
+            cur = parse_version(installed_version_str())
+            lv = parse_version(latest or "")
+
+            def done():
+                if lv and cur and lv > cur:
+                    self.latest_version = latest
+                    self._set_update_available()
+                    self._flash(f"Update available: {latest}")
+                else:
+                    self._flash("You're up to date.")
+            self.root.after(0, done)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _undo_last_update(self):
+        if not has_update_backup():
+            messagebox.showinfo("Undo Last Update", "There's no update to undo yet.", parent=self.root)
+            return
+        self.open_setup_script("Undo Last Update", "/usr/local/bin/ai-os-rollback")
+
+    def open_settings(self):
+        """Settings screen — updates section only in v1.1.0 (Q43/Q56)."""
+        self._clear()
+        self.pane_title.set("Settings")
+        wrap = tk.Frame(self.content, bg=PANEL)
+        wrap.pack(fill="both", expand=True, padx=20, pady=16)
+        tk.Label(wrap, text="Settings", bg=PANEL, fg=INK,
+                 font=(FONT, 16, "bold")).pack(anchor="w")
+        tk.Label(wrap, text="Updates", bg=PANEL, fg=SUB,
+                 font=(FONT, 12, "bold")).pack(anchor="w", pady=(14, 4))
+        tk.Label(wrap, text=f"Current version:  {installed_version_str()}",
+                 bg=PANEL, fg=BODY, font=(FONT, 11)).pack(anchor="w", pady=2)
+
+        self._setting_update_check = tk.BooleanVar(value=bool(get_setting("update_check_enabled", True)))
+
+        def toggle_check():
+            on = bool(self._setting_update_check.get())
+            set_setting("update_check_enabled", on)
+            self._flash("Update checks " + ("on" if on else "off"))
+        tk.Checkbutton(wrap, text="Automatically check for updates (one small check on startup)",
+                       variable=self._setting_update_check, command=toggle_check,
+                       bg=PANEL, fg=BODY, selectcolor="#0b1626", activebackground=PANEL,
+                       activeforeground=INK, font=(FONT, 11), anchor="w").pack(anchor="w", pady=2)
+
+        def btn(parent, text, cmd, color="#13233c", state="normal"):
+            return tk.Button(parent, text=text, command=cmd, bg=color, fg=INK,
+                             activebackground=ACCENT, activeforeground=INK, relief="raised",
+                             bd=2, font=(FONT, 11, "bold"), padx=10, pady=6, cursor="hand2",
+                             state=state)
+        row = tk.Frame(wrap, bg=PANEL)
+        row.pack(anchor="w", pady=(10, 2))
+        btn(row, "Check for updates now", self._check_updates_now).pack(side="left", padx=(0, 6))
+        btn(row, "Update OS", lambda: self.open_setup_script("Update OS", "/usr/local/bin/ai-os-update"), ACCENT).pack(side="left", padx=6)
+
+        row2 = tk.Frame(wrap, bg=PANEL)
+        row2.pack(anchor="w", pady=(8, 2))
+        undo_state = "normal" if has_update_backup() else "disabled"
+        btn(row2, "Undo last update", self._undo_last_update, "#7c2d12", undo_state).pack(side="left")
+        tk.Label(row2, text=("" if undo_state == "normal" else "  (nothing to undo yet)"),
+                 bg=PANEL, fg=MUTED, font=(FONT, 10)).pack(side="left", padx=6)
+        log_event("settings_opened", kind="user")
 
     # ---- footer: volume + power controls ----
     def _build_footer(self, root):
@@ -955,7 +1157,9 @@ class Dashboard:
         footer.pack(side="bottom", fill="x")
         tk.Label(footer, text="Esc = windowed/fullscreen     Ctrl+Q = quit",
                  bg=HEAD, fg=BODY, font=(FONT, 10), pady=6, padx=16).pack(side="left")
-        # Open Terminal lives in Apps now, so the footer stays uncluttered.
+        # No Open Terminal tile; the only terminal entry points are the
+        # "Open Project Terminal" button in the Eisenhower panel and any
+        # terminal launcher on the desktop. Footer stays uncluttered.
         self.resource_status = tk.StringVar(value="CPU --  RAM avail --  Storage --")
         self.resource_label = tk.Label(footer, textvariable=self.resource_status,
                                        bg=HEAD, fg=GOOD, font=(FONT, 10, "bold"),
@@ -964,12 +1168,18 @@ class Dashboard:
         self.resource_label.bind("<Button-1>", self._show_resource_details)
         self._cpu_prev = read_cpu_times()
         self.root.after(2000, self._resource_tick)
+        # Current version (Q30/Q44) — quiet, click to open Settings.
+        self.version_label = tk.Label(footer, text=installed_version_str(),
+                                      bg=HEAD, fg=MUTED, font=(FONT, 10),
+                                      pady=6, padx=10, cursor="hand2")
+        self.version_label.pack(side="left", padx=(4, 4))
+        self.version_label.bind("<Button-1>", lambda _e: self.open_settings())
         # Volume slider only when an audio backend exists (PipeWire/wpctl or
         # ALSA/amixer). In the minimal VM neither may be present — hide it
         # rather than show a dead control. The host always has wpctl, so this
         # branch is always taken there (unchanged).
         if shutil.which("wpctl") or shutil.which("amixer"):
-            tk.Label(footer, text="🔊 Volume", bg=HEAD, fg=BODY,
+            tk.Label(footer, text="Volume", bg=HEAD, fg=BODY,
                      font=(FONT, 10)).pack(side="left", padx=(8, 4))
             self.vol_var = tk.IntVar(value=self._volume_read())
             self._vol_after = self._vol_log_after = None
@@ -982,24 +1192,27 @@ class Dashboard:
             self.volume_scale.bind("<ButtonPress-1>", self._volume_capture_focus)
             self.volume_scale.bind("<ButtonRelease-1>", self._volume_restore_focus)
         # No AI setup button: use the terminal for normal commands.
-        tk.Button(footer, text="⏻ Power Off",
+        # Settings goes in the bottom-right corner alongside the machine controls
+        # (Install / Restart / Power Off). Packed first → ends up rightmost.
+        tk.Button(footer, text="⚙ Settings",
+                  command=self.open_settings,
+                  bg="#1e3a5f", fg=INK, activebackground="#2563eb", activeforeground=INK,
+                  relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
+                  cursor="hand2").pack(side="right", padx=(4, 6), pady=4)
+        tk.Button(footer, text="Power Off",
                   command=lambda: self._power("poweroff", "Power Off"),
                   bg="#7f1d1d", fg=INK, activebackground="#b91c1c", activeforeground=INK,
                   relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
-                  cursor="hand2").pack(side="right", padx=(4, 16), pady=4)
+                  cursor="hand2").pack(side="right", padx=4, pady=4)
         tk.Button(footer, text="⟳ Restart",
                   command=lambda: self._power("reboot", "Restart"),
                   bg="#92400e", fg=INK, activebackground="#b45309", activeforeground=INK,
                   relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
                   cursor="hand2").pack(side="right", padx=4, pady=4)
-        # Install-to-disk (C10): only show when the installer is present (i.e. on
-        # the live/installed OS, not on a dev host), so there's never a dead button.
-        if shutil.which("ai-os-install-to-disk") or os.path.exists(INSTALLER_PATH):
-            tk.Button(footer, text="💾 Install to disk",
-                      command=self._install_to_disk,
-                      bg="#155e75", fg=INK, activebackground="#0e7490", activeforeground=INK,
-                      relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
-                      cursor="hand2").pack(side="right", padx=4, pady=4)
+        # Install-to-disk button removed: the laptop is now an installed system,
+        # not a live environment that needs the installer surfaced in the UI.
+        # The ai-os-install-to-disk script is still on the system if it's ever
+        # needed; the dashboard no longer offers it.
 
     def _wifi_tick(self):
         text, color = wifi_indicator()
@@ -1376,15 +1589,46 @@ class Dashboard:
         win.lift()
         win.focus_set()
 
-    def _box(self, parent, title):
+    def _box(self, parent, title, header_right=None):
+        """A titled panel: the 'title' label on the left of the header strip,
+        and an optional caller-built widget on the right (e.g. quick-action
+        buttons). header_right, if given, is called with the header Frame and
+        should return a child widget to pack(side="right") into it."""
         box = tk.Frame(parent, bg=PANEL, highlightbackground="#1e3a5f", highlightthickness=1)
-        tk.Label(box, text=title, bg=HEAD, fg=INK, font=(FONT, 12, "bold"),
-                 pady=6, padx=10, anchor="w").pack(fill="x")
+        header = tk.Frame(box, bg=HEAD)
+        header.pack(fill="x")
+        tk.Label(header, text=title, bg=HEAD, fg=INK, font=(FONT, 12, "bold"),
+                 pady=6, padx=10, anchor="w").pack(side="left")
+        if header_right is not None:
+            try:
+                widget = header_right(header)
+                if widget is not None:
+                    widget.pack(side="right", padx=8, pady=4)
+            except Exception:
+                pass
         return box
 
     # ---- sidebar: app tiles ----
     def _build_app_grid(self, parent):
-        box = self._box(parent, "Apps")
+        # Top-of-panel quick actions: Create App + Archive Apps, sitting right
+        # of the "Apps" label. The Archive Apps tile that used to live in the
+        # grid is removed (now redundant with the header button).
+        def _apps_header_right(host):
+            # Pack straight into the header (no inner bar frame) so there's
+            # no dead band between the "Apps" label and the buttons. Pack the
+            # rightmost button first; the second one slides in to its left.
+            tk.Button(host, text="Archive Apps",
+                      command=self._archive_apps_dialog,
+                      bg="#13233c", fg=INK, activebackground=ACCENT, activeforeground=INK,
+                      font=(FONT, 9, "bold"), relief="raised", bd=1,
+                      padx=8, pady=2, cursor="hand2").pack(side="right", padx=(0, 6), pady=4)
+            tk.Button(host, text="+ Create App",
+                      command=lambda: self._app_build_new(None),
+                      bg="#13233c", fg=INK, activebackground=ACCENT, activeforeground=INK,
+                      font=(FONT, 9, "bold"), relief="raised", bd=1,
+                      padx=8, pady=2, cursor="hand2").pack(side="right", padx=(4, 0), pady=4)
+            return None
+        box = self._box(parent, "Apps", header_right=_apps_header_right)
         # Takes the whole sidebar below the to-do list (the weather moved to a
         # bottom ticker) — room for many more app squares.
         box.pack(fill="both", expand=True, pady=(0, 10))
@@ -1397,14 +1641,7 @@ class Dashboard:
         # key, label, command, archiveable. Keys are stable so archived choices
         # survive dashboard restarts and future label tweaks.
         return [
-            ("open_terminal", "Open Terminal", self.open_plain_terminal, False),
-            ("wifi_setup", "1 WiFi Setup", lambda: self.open_setup_script("1 WiFi Setup", "/usr/local/bin/ai-os-wifi-setup"), True),
-            ("router_check", "2 Router Check", lambda: self.open_setup_script("2 Router Check", "/usr/local/bin/ai-os-router-check"), True),
-            ("internet_check", "Internet Check", lambda: self.open_setup_script("Internet Check", "/usr/local/bin/ai-os-internet-check"), True),
             ("todo_list", "To-Do List", self.open_eisenhower, False),
-            ("update_os", "Update OS", lambda: self.open_setup_script("Update OS", "/usr/local/bin/ai-os-update"), True),
-            ("training_qa_report", "Training Data QA Report", self.open_training_qa_report, True),
-            ("local_logs", "Local Logs", self.open_logs, True),
         ]
 
     def _builtin_by_key(self):
@@ -1476,14 +1713,11 @@ class Dashboard:
         builtins = [(key, name, cmd, archiveable)
                     for key, name, cmd, archiveable in self._builtin_apps()
                     if key not in archived]
-        builtins.append(("archive_apps", "Archive Apps", self._archive_apps_dialog, False))
+        # (Archive Apps used to be a tile here; now it's a top-of-panel button
+        # next to the "Apps" label — see _build_app_grid header_right.)
         for i, (key, name, cmd, archiveable) in enumerate(builtins):
             tile_bg = "#13233c"
             tile_name = name
-            # Update OS goes amber + relabels when a newer version is on GitHub.
-            if key == "update_os" and getattr(self, "update_available", False):
-                tile_bg = AMBER
-                tile_name = "Update OS\n(update available)"
             b = tk.Button(self.app_grid, text=tile_name, command=cmd, bg=tile_bg, fg=INK,
                           activebackground=ACCENT, activeforeground=INK,
                           relief="raised", bd=2, font=(FONT, 10, "bold"),
@@ -1505,7 +1739,7 @@ class Dashboard:
                               cursor="hand2", wraplength=160)
                 b.bind("<Button-3>", lambda _e, k=j: self._app_remove(k))
             else:
-                b = tk.Button(self.app_grid, text="＋ Add App",
+                b = tk.Button(self.app_grid, text="+ Add App",
                               command=self._app_pick,
                               bg="#0b1626", fg=MUTED, activebackground="#13233c",
                               activeforeground=BODY, relief="ridge", bd=1,
@@ -1718,7 +1952,7 @@ class Dashboard:
                 pass
 
         def refocus():
-            # Terminals (Run System Update etc.) need KEYBOARD focus, which
+            # Terminals (Update OS etc.) need KEYBOARD focus, which
             # stays on the Tk window after reparenting — typing went nowhere.
             # Hand X input focus to the embedded app, but ONLY while the
             # dashboard itself really holds the keyboard. CAUTION (2026-06-06):
@@ -2122,51 +2356,6 @@ class Dashboard:
                  justify="left", wraplength=900).pack(expand=True)
         self._flash("No terminal emulator found")
 
-    def _plain_shell_command(self):
-        """A real, no-friction terminal. This exists because the laptop ISO
-        must always have a plain escape hatch: click Open Terminal, get bash."""
-        lines = [
-            "clear",
-            "echo 'Ascended Barron'",
-            "echo '==============='",
-            "echo",
-            "echo 'This is a normal terminal window.'",
-            "echo 'For project work, select a task and open its project terminal.'",
-            "echo",
-            "echo 'Terminal tips:'",
-            "echo '  • Copy: select text, then press Ctrl+Shift+C.'",
-            "echo '  • Paste: press Ctrl+Shift+V.'",
-            "echo '  • If the fallback xterm ever appears, use middle-click or Shift+Insert.'",
-            "echo '  • Most AI OS buttons avoid copy/paste entirely.'",
-            "echo",
-            "exec bash",
-        ]
-        return "; ".join(lines)
-
-    def open_plain_terminal(self):
-        self._clear()
-        self.pane_title.set(WORK_ZONE_TITLE)
-        cmd = self._plain_shell_command()
-        if (EMBED or TERMINAL_PANE) and shutil.which("xterm"):
-            host = tk.Frame(self.content, bg="#020912")
-            host.pack(fill="both", expand=True)
-            host.update_idletasks()
-            self.term_proc = subprocess.Popen(
-                xterm_args(cmd, into=host.winfo_id()),
-                start_new_session=True)
-            self._flash("Terminal is open")
-            log_event("terminal_opened", "plain Open Terminal app", kind="system")
-            return
-        args = find_terminal(cmd)
-        if args:
-            subprocess.Popen(args, start_new_session=True)
-            self._flash("Terminal opened in its own window")
-            log_event("terminal_opened", "external plain terminal", kind="system")
-            return
-        msg = "No terminal emulator is installed."
-        tk.Label(self.content, text=msg, bg=PANEL, fg=BODY, font=(FONT, 13),
-                 justify="left", wraplength=900).pack(expand=True)
-        self._flash("No terminal emulator found")
 
     def open_setup_script(self, title, script_path):
         """Open one of the simple setup scripts as an Apps button.
@@ -2223,29 +2412,23 @@ class Dashboard:
         self.eisen_index = {}
         self.eisen_sel = None
 
-        # Two rows of buttons — all six in one row overflow the pane on the
-        # 1024x768 VM screen (Delete/Refresh were cut off at the right edge,
-        # 2026-06-06).
-        bars = tk.Frame(self.content, bg=PANEL)
-        bars.pack(fill="x", padx=8, pady=(8, 2))
-        row1 = tk.Frame(bars, bg=PANEL)
-        row1.pack(fill="x")
-        row2 = tk.Frame(bars, bg=PANEL)
-        row2.pack(fill="x", pady=(4, 0))
+        # One row of action buttons. Order follows the natural task lifecycle
+        # (create → work → complete), with reorganize + browse-done after, and
+        # the destructive Delete kept red and pushed to the far end so it's not
+        # hit by accident.
+        bar = tk.Frame(self.content, bg=PANEL)
+        bar.pack(fill="x", padx=8, pady=(8, 2))
 
-        def tb(row, text, cmd, color="#13233c"):
-            tk.Button(row, text=text, command=cmd, bg=color, fg=INK,
+        def tb(text, cmd, color="#13233c"):
+            tk.Button(bar, text=text, command=cmd, bg=color, fg=INK,
                       activebackground=ACCENT, activeforeground=INK, relief="raised", bd=2,
                       font=(FONT, 10, "bold"), padx=10, pady=5, cursor="hand2").pack(side="left", padx=3)
-        tb(row1, "➕ Add Task", self._eisen_add, ACCENT2)
-        tb(row1, "Open Project Terminal", self.open_selected_project_terminal, ACCENT)
-        tb(row2, "✓ Mark Done", self._eisen_done)
-        tb(row2, "Done Tasks", self._eisen_show_done_tasks)
-        tb(row2, "↔ Move", self._eisen_move)
-        tb(row2, "🗑 Delete", self._eisen_delete, "#7f1d1d")
-        tb(row2, "⟳ Refresh", lambda: self._eisen_refresh())
-        tb(row2, "Review Training QA Reports", self.review_training_qa_reports)
-        tb(row2, "Export Training Data", self.export_training_data)
+        tb("+ Add Task",         self._eisen_add,                   ACCENT2)
+        tb("Open Project Terminal", self.open_selected_project_terminal, ACCENT)
+        tb("✓ Mark Done",        self._eisen_done)
+        tb("↔ Move",             self._eisen_move)
+        tb("Done Tasks",         self._eisen_show_done_tasks)
+        tb("Delete",          self._eisen_delete,                "#7f1d1d")
 
         # One-line orientation so first-time users know the core loop now that
         # this view is the boot default (replaces the old welcome screen).
@@ -2515,413 +2698,6 @@ class Dashboard:
             self._flash(f"Moved: {t.get('title', '')}")
         self._eisen_quad_chooser(t.get("title", ""), choose)
 
-    # ---- Training Data QA Reports ----
-    def _training_qa_command(self):
-        return [sys.executable, "-m", "ai_big_log.logger", "training-qa-report",
-                "--log-path", str(BIG_LOG_PATH), "--report-dir", str(TRAINING_QA_REPORT_DIR)]
-
-    def open_training_qa_report(self):
-        self._clear()
-        self.pane_title.set(WORK_ZONE_TITLE)
-        self._flash("Running Training Data QA…")
-        log_event("app_launched", "Training Data QA Report", kind="user")
-
-        tk.Label(self.content, text="Training Data QA Report", bg=PANEL, fg=INK,
-                 font=(FONT, 16, "bold")).pack(anchor="w", padx=12, pady=(12, 4))
-        tk.Label(self.content,
-                 text=("Analyzes the current AI big-log JSONL and writes timestamped "
-                       "Markdown + JSON QA reports. It does not run the logger update."),
-                 bg=PANEL, fg=BODY, font=(FONT, 10), wraplength=900,
-                 justify="left").pack(anchor="w", padx=12, pady=(0, 8))
-        status = tk.StringVar(value="Running…")
-        tk.Label(self.content, textvariable=status, bg=PANEL, fg=GOOD,
-                 font=(FONT, 11, "bold")).pack(anchor="w", padx=12, pady=(0, 8))
-        run_btn = tk.Button(self.content, text="Running…", state="disabled",
-                            bg="#13233c", fg=INK, font=(FONT, 10, "bold"),
-                            padx=10, pady=6, cursor="watch")
-        run_btn.pack(anchor="w", padx=12, pady=(0, 8))
-        out = tk.Text(self.content, bg="#020912", fg=BODY, font=("DejaVu Sans Mono", 10),
-                      relief="flat", padx=14, pady=12, wrap="word", highlightthickness=0,
-                      height=18)
-        out.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-        out.insert("end", f"Log path:\n{BIG_LOG_PATH}\n\nReport directory:\n{TRAINING_QA_REPORT_DIR}\n\n")
-        out.configure(state="disabled")
-
-        def append(text):
-            out.configure(state="normal")
-            out.insert("end", text)
-            out.see("end")
-            out.configure(state="disabled")
-
-        def worker():
-            try:
-                proc = subprocess.run(self._training_qa_command(), cwd=str(AI_OS_LIB_DIR),
-                                      text=True, capture_output=True, timeout=180)
-                payload = None
-                try:
-                    payload = json.loads(proc.stdout)
-                except Exception:
-                    payload = None
-                def done():
-                    run_btn.configure(text="Run Again", state="normal", cursor="hand2",
-                                      command=self.open_training_qa_report)
-                    if proc.returncode != 0:
-                        status.set("Training QA failed")
-                        append("Command failed.\n\nSTDOUT:\n" + proc.stdout + "\nSTDERR:\n" + proc.stderr)
-                        messagebox.showerror("Training QA Report", "Training QA failed. See the panel output.", parent=self.root)
-                        return
-                    if payload:
-                        summary = payload.get("summary", {})
-                        paths = payload.get("paths", {})
-                        finding_counts = summary.get("finding_counts", {})
-                        msg = (f"Status: {str(payload.get('status', '')).upper()}\n"
-                               f"Score: {payload.get('scorecard', {}).get('overall_score')} / 100\n"
-                               f"Lines: {summary.get('line_count')}\n"
-                               f"Duplicates: {finding_counts.get('duplicates', 0)}\n"
-                               f"Logger errors: {finding_counts.get('logger_errors', 0)}\n"
-                               f"Sensitive refs: {finding_counts.get('sensitive_findings', 0)}\n\n"
-                               f"Markdown:\n{paths.get('markdown_path')}\n\nJSON:\n{paths.get('json_path')}\n")
-                        status.set("Training QA complete")
-                        append(msg)
-                        messagebox.showinfo("Training QA Report", msg, parent=self.root)
-                    else:
-                        status.set("Training QA complete")
-                        append(proc.stdout + ("\nSTDERR:\n" + proc.stderr if proc.stderr else ""))
-                self.root.after(0, done)
-            except Exception as exc:
-                def failed(exc=exc):
-                    run_btn.configure(text="Run Again", state="normal", cursor="hand2",
-                                      command=self.open_training_qa_report)
-                    status.set("Training QA failed")
-                    append(f"Training QA failed: {exc}\n")
-                    messagebox.showerror("Training QA Report", f"Training QA failed:\n\n{exc}", parent=self.root)
-                self.root.after(0, failed)
-        threading.Thread(target=worker, daemon=True).start()
-
-    def _training_export_command(self, model_id, output_path=None, log_path=None, start_new_log_first=False):
-        cmd = [sys.executable, "-m", "ai_big_log.training_export",
-               "--log-path", str(log_path or BIG_LOG_PATH),
-               "--state-path", str(BIG_LOG_DIR / "logs" / "state.json"),
-               "--model-id", model_id]
-        if output_path:
-            cmd.extend(["--output-path", str(output_path)])
-        if start_new_log_first:
-            cmd.append("--start-new-log-first")
-        return cmd
-
-    def export_training_data(self):
-        win = tk.Toplevel(self.root)
-        win.title("Export Training Data")
-        win.configure(bg=PANEL, padx=18, pady=18)
-        log_event("training_data_export_opened", "Export Training Data", kind="user")
-
-        tk.Label(win, text="Export Training Data", bg=PANEL, fg=INK,
-                 font=(FONT, 13, "bold")).pack(anchor="w")
-        tk.Label(win,
-                 text=("Enter the Hugging Face model ID you will fine-tune in FLORA. "
-                       "Prepare first archives the current training log, creates a fresh active log for new events, "
-                       "then reads the archived old log to prepare a JSONL chat dataset for export."),
-                 bg=PANEL, fg=BODY, font=(FONT, 10), wraplength=850,
-                 justify="left").pack(anchor="w", pady=(0, 8))
-
-        form = tk.Frame(win, bg=PANEL)
-        form.pack(fill="x", pady=(4, 8))
-        tk.Label(form, text="Model ID", bg=PANEL, fg=BODY,
-                 font=(FONT, 10, "bold")).pack(side="left", padx=(0, 8))
-        model_var = tk.StringVar(value="meta-llama/Llama-3.1-8B-Instruct")
-        model_entry = tk.Entry(form, textvariable=model_var, bg="#0b1626", fg=INK,
-                               insertbackground=INK, relief="flat", width=48,
-                               font=(FONT, 11))
-        model_entry.pack(side="left", fill="x", expand=True)
-
-        status = tk.StringVar(value="Enter a model ID, then prepare training data.")
-        tk.Label(win, textvariable=status, bg=PANEL, fg=GOOD,
-                 font=(FONT, 10, "bold"), wraplength=850,
-                 justify="left").pack(anchor="w", pady=(0, 8))
-        out = tk.Text(win, bg="#020912", fg=BODY, font=("DejaVu Sans Mono", 10),
-                      relief="flat", padx=12, pady=10, wrap="word", height=14, width=95,
-                      highlightthickness=0)
-        out.pack(fill="both", expand=True, pady=(0, 10))
-        out.insert("end", f"Log path:\n{BIG_LOG_PATH}\n\nFormat after prepare:\nJSONL chat messages, one conversation per line.\n")
-        out.configure(state="disabled")
-
-        prepared = {"payload": None}
-
-        def append(text, replace=False):
-            out.configure(state="normal")
-            if replace:
-                out.delete("1.0", "end")
-            out.insert("end", text)
-            out.see("end")
-            out.configure(state="disabled")
-
-        buttons = tk.Frame(win, bg=PANEL)
-        buttons.pack(fill="x")
-        prepare_btn = tk.Button(buttons, text="Prepare Training Data", bg=ACCENT2, fg=INK,
-                                font=(FONT, 11, "bold"), relief="raised", bd=2,
-                                padx=10, pady=6, cursor="hand2")
-        export_btn = tk.Button(buttons, text="Export", state="disabled", bg=ACCENT, fg=INK,
-                               font=(FONT, 11, "bold"), relief="raised", bd=2,
-                               padx=10, pady=6, cursor="arrow")
-        close_btn = tk.Button(buttons, text="✕ Close", command=win.destroy, bg="#13233c", fg=INK,
-                              font=(FONT, 11, "bold"), relief="raised", bd=2,
-                              padx=10, pady=6, cursor="hand2")
-        prepare_btn.pack(side="left", padx=(0, 6))
-        export_btn.pack(side="left", padx=(0, 6))
-        close_btn.pack(side="right")
-
-        def parse_payload(proc):
-            try:
-                return json.loads(proc.stdout)
-            except Exception:
-                return None
-
-        def prepare():
-            model_id = model_var.get().strip()
-            prepare_btn.configure(text="Preparing…", state="disabled", cursor="watch")
-            export_btn.configure(state="disabled", cursor="arrow")
-            status.set("Creating a fresh active log, then preparing old log read-only…")
-            append("\nStarting a new active log, then preparing old log with model ID: " + model_id + "\n")
-
-            def worker():
-                proc = subprocess.run(self._training_export_command(model_id, start_new_log_first=True), cwd=str(AI_OS_LIB_DIR),
-                                      text=True, capture_output=True, timeout=240)
-                payload = parse_payload(proc)
-                def done():
-                    prepare_btn.configure(text="Prepare Training Data", state="normal", cursor="hand2")
-                    if proc.returncode != 0 or not payload or payload.get("status") == "error":
-                        err = (payload or {}).get("error") or proc.stderr or proc.stdout or "Prepare failed."
-                        status.set("Prepare failed")
-                        append("\nPrepare failed:\n" + str(err) + "\n")
-                        messagebox.showerror("Export Training Data", str(err), parent=win)
-                        return
-                    prepared["payload"] = payload
-                    summary = payload.get("summary", {})
-                    warnings = summary.get("warnings", []) or []
-                    rotation = payload.get("rotation", {})
-                    text = ("\nPrepared training data from archived old log.\n"
-                            f"Old/source log: {payload.get('source_log_path')}\n"
-                            f"Fresh active log: {rotation.get('new_log_path')}\n"
-                            f"Format: {summary.get('file_format')}\n"
-                            f"Schema: {summary.get('schema')}\n"
-                            f"Target model: {summary.get('model_id')}\n"
-                            f"Records found: {summary.get('records_found')}\n"
-                            f"Conversations prepared: {summary.get('records_prepared')}\n"
-                            f"Records skipped/failed: {summary.get('records_skipped')}\n"
-                            f"QA status: {str(summary.get('qa_status')).upper()}\n"
-                            f"QA score: {summary.get('qa_score')} / 100\n")
-                    if warnings:
-                        text += "Warnings:\n" + "\n".join("- " + str(w) for w in warnings) + "\n"
-                    status.set("Prepared. Review the summary, then export.")
-                    append(text)
-                    export_btn.configure(state="normal", cursor="hand2")
-                self.root.after(0, done)
-            threading.Thread(target=worker, daemon=True).start()
-
-        def export():
-            payload = prepared.get("payload") or {}
-            summary = payload.get("summary", {})
-            model_id = summary.get("model_id") or model_var.get().strip()
-            safe_name = "training-data-" + "".join(ch if ch.isalnum() or ch in ".-_" else "-" for ch in model_id) + ".jsonl"
-            path = filedialog.asksaveasfilename(parent=win, title="Export Training Data",
-                                                defaultextension=".jsonl", initialfile=safe_name,
-                                                filetypes=[("JSONL files", "*.jsonl"), ("All files", "*")])
-            if not path:
-                return
-            export_btn.configure(text="Exporting…", state="disabled", cursor="watch")
-            prepare_btn.configure(state="disabled")
-            status.set("Exporting prepared old log data…")
-
-            def worker():
-                source_log = payload.get("source_log_path") or BIG_LOG_PATH
-                proc = subprocess.run(self._training_export_command(model_id, path, log_path=source_log),
-                                      cwd=str(AI_OS_LIB_DIR), text=True, capture_output=True, timeout=240)
-                payload = parse_payload(proc)
-                def done():
-                    export_btn.configure(text="Export", state="normal", cursor="hand2")
-                    prepare_btn.configure(state="normal")
-                    if proc.returncode != 0 or not payload or payload.get("status") == "error":
-                        err = (payload or {}).get("error") or proc.stderr or proc.stdout or "Export failed."
-                        status.set("Export failed")
-                        append("\nExport failed:\n" + str(err) + "\n")
-                        messagebox.showerror("Export Training Data", str(err), parent=win)
-                        return
-                    original_payload = prepared.get("payload") or {}
-                    rotation = original_payload.get("rotation", {})
-                    msg = (f"Exported training data:\n{payload.get('output_path')}\n\n"
-                           f"Source old log:\n{payload.get('source_log_path')}\n\n"
-                           f"Fresh active log:\n{rotation.get('new_log_path')}\n")
-                    status.set("Export complete. New events are already logging to the fresh active log.")
-                    append("\n" + msg)
-                    messagebox.showinfo("Export Training Data", msg, parent=win)
-                self.root.after(0, done)
-            threading.Thread(target=worker, daemon=True).start()
-
-        prepare_btn.configure(command=prepare)
-        export_btn.configure(command=export)
-        model_entry.focus_set()
-        win.bind("<Return>", lambda _e: prepare())
-        win.bind("<Escape>", lambda _e: win.destroy())
-        self._popup_prep(win)
-
-    def _view_text_file(self, path, title=None):
-        p = pathlib.Path(path)
-        win = tk.Toplevel(self.root)
-        win.title(title or p.name)
-        win.configure(bg=PANEL, padx=12, pady=12)
-        tk.Label(win, text=str(p), bg=PANEL, fg=BODY, font=(FONT, 10),
-                 wraplength=900, justify="left").pack(anchor="w", pady=(0, 8))
-        txt = tk.Text(win, bg="#020912", fg=BODY, font=("DejaVu Sans Mono", 10),
-                      relief="flat", padx=12, pady=10, wrap="word", height=32, width=110)
-        txt.pack(fill="both", expand=True)
-        try:
-            text = p.read_text(encoding="utf-8")
-        except Exception as exc:
-            text = f"Could not read {p}:\n\n{exc}"
-        txt.insert("end", text)
-        txt.configure(state="disabled")
-        tk.Button(win, text="✕ Close", command=win.destroy, bg="#13233c", fg=INK,
-                  font=(FONT, 11, "bold"), relief="raised", bd=2, padx=10, pady=6,
-                  cursor="hand2").pack(anchor="e", pady=(8, 0))
-        self._popup_prep(win)
-
-    def review_training_qa_reports(self):
-        reports = sorted(TRAINING_QA_REPORT_DIR.glob("training-qa-report-*.md"),
-                         key=lambda p: p.stat().st_mtime, reverse=True) if TRAINING_QA_REPORT_DIR.exists() else []
-        reports = [p for p in reports if p.name != "training-qa-report-latest.md"]
-        win = tk.Toplevel(self.root)
-        win.title("Review Training QA Reports")
-        win.configure(bg=PANEL, padx=18, pady=18)
-        tk.Label(win, text="Training QA Reports", bg=PANEL, fg=INK,
-                 font=(FONT, 13, "bold")).pack(anchor="w")
-        tk.Label(win, text=str(TRAINING_QA_REPORT_DIR), bg=PANEL, fg=BODY,
-                 font=(FONT, 10), wraplength=850, justify="left").pack(anchor="w", pady=(0, 8))
-        if not reports:
-            tk.Label(win, text="No reports yet. Run Training Data QA Report first.",
-                     bg=PANEL, fg=BODY, font=(FONT, 11)).pack(anchor="w", pady=10)
-        else:
-            lb = tk.Listbox(win, bg="#0b1626", fg=BODY, font=(FONT, 11),
-                            selectbackground=ACCENT, selectforeground=INK,
-                            relief="flat", highlightthickness=0, activestyle="none",
-                            height=min(14, max(5, len(reports))), width=88)
-            for p in reports:
-                lb.insert("end", "  " + p.name)
-            lb.pack(fill="both", expand=True, pady=(4, 10))
-
-            def selected():
-                sel = lb.curselection()
-                if not sel:
-                    messagebox.showinfo("Training QA Reports", "Click a report first.", parent=win)
-                    return None
-                return reports[sel[0]]
-
-            def view_md(_e=None):
-                p = selected()
-                if p:
-                    self._view_text_file(p, "Training QA Markdown Report")
-
-            def view_json():
-                p = selected()
-                if p:
-                    jp = p.with_suffix(".json")
-                    self._view_text_file(jp if jp.exists() else p, "Training QA JSON Report")
-
-            lb.bind("<Double-Button-1>", view_md)
-            tk.Button(win, text="View Markdown", command=view_md, bg=ACCENT2, fg=INK,
-                      font=(FONT, 11, "bold"), relief="raised", bd=2, padx=10, pady=6,
-                      cursor="hand2").pack(side="left", padx=(0, 6))
-            tk.Button(win, text="View JSON", command=view_json, bg="#13233c", fg=INK,
-                      font=(FONT, 11, "bold"), relief="raised", bd=2, padx=10, pady=6,
-                      cursor="hand2").pack(side="left", padx=(0, 6))
-        def open_folder():
-            try:
-                subprocess.Popen(["xdg-open", str(TRAINING_QA_REPORT_DIR)],
-                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            except Exception as exc:
-                messagebox.showerror("Training QA Reports", f"Could not open folder:\n\n{exc}", parent=win)
-        tk.Button(win, text="Open Reports Folder", command=open_folder, bg="#13233c", fg=INK,
-                  font=(FONT, 11, "bold"), relief="raised", bd=2, padx=10, pady=6,
-                  cursor="hand2").pack(side="left", padx=(0, 6))
-        tk.Button(win, text="✕ Close", command=win.destroy, bg="#13233c", fg=INK,
-                  font=(FONT, 11, "bold"), relief="raised", bd=2, padx=10, pady=6,
-                  cursor="hand2").pack(side="right")
-        self._popup_prep(win)
-
-    # ---- Local Logs (right pane) ----
-    def open_logs(self):
-        self._clear()
-        self.pane_title.set(WORK_ZONE_TITLE)
-        self._flash("Opened Local Logs")
-        log_event("panel_opened", "Local Logs", kind="user")
-
-        # Dashboard events live inside the AI big log among thousands of other
-        # records, so pre-filter lines by substring before paying for json.loads.
-        records = []
-        try:
-            if BIG_LOG_PATH.exists():
-                with BIG_LOG_PATH.open("r", encoding="utf-8") as f:
-                    for line in f:
-                        if '"record_type": "dashboard_event"' not in line:
-                            continue
-                        try:
-                            records.append(json.loads(line))
-                        except Exception:
-                            pass
-        except Exception:
-            pass
-        try:  # legacy history + anything written while the big log was unreachable
-            if LOG_PATH.exists():
-                for line in LOG_PATH.read_text(encoding="utf-8").splitlines():
-                    line = line.strip()
-                    if line:
-                        try:
-                            records.append(json.loads(line))
-                        except Exception:
-                            pass
-        except Exception:
-            pass
-        records.sort(key=lambda r: r.get("captured_at") or r.get("ts") or "")
-
-        counts = {"user": 0, "ai": 0, "file": 0, "system": 0}
-        for r in records:
-            counts[r.get("kind", "system")] = counts.get(r.get("kind", "system"), 0) + 1
-
-        tk.Label(self.content,
-                 text=("Every user action, AI response, and file change is recorded as "
-                       "training data in your local AI big log — to later "
-                       "fine-tune a model to your workflow."),
-                 bg=PANEL, fg=BODY, font=(FONT, 10), wraplength=900,
-                 justify="left").pack(anchor="w", padx=12, pady=(8, 0))
-        tk.Label(self.content,
-                 text=(f"{len(records)} events  ·  {counts['user']} user · {counts['ai']} AI · "
-                       f"{counts['file']} file · {counts['system']} system"),
-                 bg=PANEL, fg=MUTED, font=(FONT, 10)).pack(anchor="w", padx=12, pady=(2, 6))
-
-        out = tk.Text(self.content, bg="#020912", fg=BODY, font=("DejaVu Sans Mono", 10),
-                      relief="flat", padx=14, pady=12, wrap="word", highlightthickness=0)
-        out.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-        kind_colors = {"user": "#fde047", "ai": "#a7f3d0", "file": "#93c5fd", "system": "#94a3b8"}
-        for k, c in kind_colors.items():
-            out.tag_configure(k, foreground=c)
-        out.tag_configure("h", foreground=INK, font=(FONT, 11, "bold"))
-        out.tag_configure("ts", foreground="#475569")
-
-        if not records:
-            out.insert("end", "No events yet. Use the dashboard and they'll appear here.\n")
-        else:
-            out.insert("end", "Newest first:\n\n", "h")
-            for rec in reversed(records[-500:]):
-                kind = rec.get("kind", "system")
-                tag = kind if kind in kind_colors else "system"
-                ts = (rec.get("captured_at") or rec.get("ts") or "")[11:19]
-                out.insert("end", f"  {ts}  ", "ts")
-                out.insert("end", f"[{kind:^6}] ", tag)
-                out.insert("end", rec.get("action", ""), "h")
-                detail = rec.get("detail", "")
-                if detail:
-                    out.insert("end", f"  —  {detail}")
-                out.insert("end", "\n")
-        out.configure(state="disabled")
 
 
 def keep_dashboard_in_background(root):
@@ -3099,8 +2875,7 @@ def main():
     dash = Dashboard(root)
     # Optional: open a specific panel on launch (used for previews/screenshots).
     start = os.environ.get("AI_OS_START_VIEW", "").lower()
-    opener = {"eisenhower": dash.open_eisenhower,
-              "logs": dash.open_logs}.get(start)
+    opener = {"eisenhower": dash.open_eisenhower}.get(start)
     if opener:
         root.after(150, opener)
     # Optional: auto-open a placed app square on launch (previews/screenshots).

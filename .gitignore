@@ -54,5 +54,9 @@ logs/
 tmp/
 .cache/
 
-# Build-time version stamp — generated, never committed (see build.sh)
+# Build-time version stamps — generated, never committed (see build.sh)
 airootfs/usr/local/share/ai-os/INSTALLED_REV
+airootfs/usr/local/share/ai-os/INSTALLED_VERSION
+# NOTE: MANIFEST.sha256 IS committed on purpose — the updater pulls it from the
+# repo to detect locally-modified files and remove files dropped in a release.
+# Keep it fresh with tools/gen-manifest.sh (make-release enforces this).

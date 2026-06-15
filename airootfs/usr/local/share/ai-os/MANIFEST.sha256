@@ -1,0 +1,17 @@
+0d6172918f0182f2f63a9236039eec9b69ed63f3a5a48e5354a30e7228d4ed28  usr/local/bin/ai-os-browser
+30e743784e86757b07450e1d45923de6a3456ea461b1a23b3525098ca763c2d0  usr/local/bin/ai-os-firstboot-info
+12e28567b756ea8fe3699709e93c576e7a7c1508ff7968a58eb01aa9f1e6e7bb  usr/local/bin/ai-os-install-to-disk
+2d6cb997fed5c7da77f4ec2eee0ab69bf42581f2b19e8e0c16ace1cd309bb995  usr/local/bin/ai-os-internet-check
+4ddc8db199fe88b48980f8711bdbd2fae4d6452cb87514c26654bb0b3d1b2982  usr/local/bin/ai-os-open-terminal
+da07415a94a26f594f04e3d8ed3d16e95678446689a529ae77110bd839ac417f  usr/local/bin/ai-os-rollback
+53058e69aba57461b39195ed838c8db058ca541530a1967fce8fae4d30877853  usr/local/bin/ai-os-router-check
+c6d981217a826ededa768bcdcc37faff8f0c88894d9af3d84be4bf671a0775c0  usr/local/bin/ai-os-terminal-dashboard
+e1825239b8d6352f1d669853b73a2696e4ad7c2c967214119bb657b945e42deb  usr/local/bin/ai-os-update
+842ae3b9177cdd3fec552c61878fc96a8d3312f7f13210c8774e69ef4750e042  usr/local/bin/ai-os-wifi-setup
+7f93793d58e320f2567a2975f039e5c0bf1a31419a85cc781f7f5e61fd4f4ebb  usr/local/bin/start-ai-os-gui-dashboard
+517f674b0e6d0e365e2b4511c61f2b9be753d423f1059f808c2cc4ae85d013fa  usr/local/lib/ai-os/ai_big_log/__init__.py
+62de8985f78fc6c9f68c1498e2e6da25a6f64bd6be3a3728cdd749078ceef140  usr/local/lib/ai-os/ai_big_log/logger.py
+ed530c406bdb112cf6ded0271d28271c5d0ab17f8697e3698ebbc651e61a30ad  usr/local/lib/ai-os/ai_big_log/training_export.py
+1f01494230c0e5db6802b659e40724a1d6765ed3339fa582e421cfd7bd2bee79  usr/local/lib/ai-os/ai_big_log/training_qa.py
+7e047f69863b8cd94fb38eff6d6f3188f2056cf201e94f3c0d5b670b16a8347e  usr/local/share/ai-os/CHANGELOG.md
+adcf56593bcd7ec2e8552f178dfc6dea936fb6337a46ff73c6e6f808cf42b857  usr/local/share/ai-os/ai-os-dashboard.py
