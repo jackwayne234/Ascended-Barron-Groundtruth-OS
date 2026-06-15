@@ -1806,30 +1806,41 @@ class Dashboard:
         tk.Button(row, text="Place in square", command=place, bg=ACCENT2, fg=INK,
                   font=(FONT, 11, "bold"), relief="raised", bd=2, padx=10, pady=6,
                   cursor="hand2").pack(side="left", padx=(0, 6))
+        tk.Button(row, text="Build a new app", command=lambda: self._app_build_new(win),
+                  bg=GOOD, fg=INK, font=(FONT, 11, "bold"), relief="raised", bd=2,
+                  padx=10, pady=6, cursor="hand2").pack(side="left", padx=(0, 6))
         tk.Button(row, text="✕ Close", command=win.destroy, bg="#13233c", fg=INK,
                   font=(FONT, 11, "bold"), relief="raised", bd=2, padx=10, pady=6,
                   cursor="hand2").pack(side="right")
         self._popup_prep(win)
 
-    def _app_build_new(self):
-        """Create a task for a future app idea. The user can open a terminal
-        in the project folder and use whichever AI/helper they prefer."""
-        idea = simpledialog.askstring(
+    def _app_build_new(self, parent_win=None):
+        """Build a brand-new app with AI: name it, create a project folder +
+        a ground-truth.md named for it, and open a terminal right inside it to
+        start building. Once it's built, place it in a square via Add App."""
+        name = simpledialog.askstring(
             "Build a new app",
-            "What app should we build?  (e.g. \"a weather app\")", parent=self.root)
-        if not idea or not idea.strip():
+            "Name your app (this becomes its project folder):",
+            parent=parent_win or self.root)
+        if not name or not name.strip():
             return
-        idea = idea.strip()
-        title = idea if idea.lower().startswith(("create", "build", "make")) else f"Create {idea}"
-        task = {"id": str(uuid.uuid4()), "title": title, "quadrant": "do_first",
+        name = name.strip()
+        task = {"id": str(uuid.uuid4()), "title": name, "quadrant": "do_first",
                 "completed": False, "created_at": _now_iso(), "updated_at": _now_iso(),
                 "completed_at": None}
         self.eisen_data.setdefault("tasks", []).append(task)
         save_tasks(self.eisen_data)
-        log_event("task_added", title, kind="user", quadrant="do_first", via="app_square")
+        log_event("task_added", name, kind="user", quadrant="do_first", via="build_app")
         self._eisen_refresh(reload=False)
         self.eisen_sel = task
-        self._flash(f"Task created: {title}. Open Terminal in the project folder if you want AI help.")
+        if parent_win is not None:
+            try:
+                parent_win.destroy()
+            except Exception:
+                pass
+        # Create the project folder + ground-truth.md + AGENTS.md and open a
+        # terminal in it to start building (same flow as Work-with-AI on a task).
+        self.open_selected_project_terminal()
 
     # ---- bottom weather ticker (the user's prebuilt weather app) ----
     def _build_weather_ticker(self, parent):
