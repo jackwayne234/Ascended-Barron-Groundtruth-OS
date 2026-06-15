@@ -1,0 +1,16 @@
+{
+  "location": "New York, NY",
+  "forecast_days": 7,
+  "refresh_minutes": 30,
+  "always_on_top": false,
+  "always_on_bottom": true,
+  "opacity": 0.96,
+  "width": 1000,
+  "height": 340,
+  "position_mode": "manual",
+  "top_margin": 35,
+  "position": {
+    "x": 920,
+    "y": 708
+  }
+}
