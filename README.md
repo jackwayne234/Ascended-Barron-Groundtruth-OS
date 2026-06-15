@@ -88,18 +88,39 @@ in v1** — turn it off in your firmware if it's on.
 
 ## Updating
 
-On **v1.0.2 or newer**, updating is one click: open **Update OS** in the
-dashboard's Apps grid. It pulls the latest release from this repo, backs up the
-current files first, and replaces only the OS's own app files — your projects and
-data in `~/workspace` are never touched. The tile turns **amber** when a newer
-version is available.
+Updating is one click: open **Update OS** in the dashboard's Apps grid (or in
+**Settings**). It pulls the latest **published release**, **verifies its GPG
+signature**, backs up the current files first, and replaces only the OS's own app
+files — your projects and data in `~/workspace` are never touched. The Update OS
+tile turns **amber** (with a dismissible banner) when a newer version is
+available.
 
-On **v1.0.0 / v1.0.1** (which predate the Update button), add the updater once and
-the button takes over from then on:
+From **v1.1.0** the update system also:
+
+- installs only **signed releases** — a bad or missing signature is refused, so
+  you only ever run code the project actually signed;
+- shows your **current version** in the bottom bar and **Settings**, and pops up
+  **what's new** once after an update;
+- lets you **undo the last update** and **turn the update check off** in Settings;
+- adds a separate **System Update** button (bottom bar) that updates the
+  underlying Arch system (kernel, browser, security fixes) with a full, safe
+  `pacman -Syu`.
+
+### Older installs (v1.0.0 / v1.0.1)
+
+These predate the updater. Add it once and the **Update OS** button takes over:
+
+```
+curl -fsSL https://raw.githubusercontent.com/jackwayne234/Ascended-Barron-Groundtruth-OS/main/groundtruth-os/bootstrap-updater.sh | bash
+```
+
+Prefer not to pipe to a shell? Do the same thing by hand:
 
 ```
 git clone --depth 1 https://github.com/jackwayne234/Ascended-Barron-Groundtruth-OS.git /tmp/abgt \
   && sudo install -m755 /tmp/abgt/groundtruth-os/airootfs/usr/local/bin/ai-os-update /usr/local/bin/ \
+  && sudo install -d /usr/local/share/ai-os \
+  && sudo install -m644 /tmp/abgt/groundtruth-os/airootfs/usr/local/share/ai-os/release-pubkey.asc /usr/local/share/ai-os/ \
   && ai-os-update
 ```
 
