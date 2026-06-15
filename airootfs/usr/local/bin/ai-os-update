@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ai-os-update — Ascended Barron: GroundTruth OS in-place updater (v1.1.0+).
 #
-# Pulls the latest PUBLISHED, GPG-SIGNED release (a git tag) from the public
-# repo and installs it over the current copy, AFTER backing up what it replaces.
+# Pulls the latest PUBLISHED release (a git tag) from the public repo over HTTPS
+# and installs it over the current copy, AFTER backing up what it replaces.
 # It touches ONLY the OS's own app files under /usr/local (the dashboard + the
 # ai-os-* helpers and libraries) — never your projects, your data, your
 # settings, or system packages. Your work in ~/workspace is left completely
@@ -10,8 +10,6 @@
 #
 # What's new vs the v1.0.2 updater (all per the locked v1.1.0 decisions):
 #   - tracks the latest RELEASE TAG, not the main branch tip            (Q1)
-#   - VERIFIES the tag's GPG signature against a baked-in key; a bad or
-#     missing signature is a HARD FAIL — nothing is installed            (Q5/Q39)
 #   - re-execs itself from a temp copy so it can safely replace itself   (Q10)
 #   - refuses to run twice at once (lock file)                          (Q47)
 #   - skips work when already up to date                                (Q16)
@@ -35,7 +33,6 @@ BACKUP_ROOT="$HOME/.local/share/ai-os/update-backups"
 BACKUP="$BACKUP_ROOT/$STAMP"
 HISTORY="$HOME/.local/share/ai-os/update-history.jsonl"
 DASH_DIR="/usr/local/share/ai-os"
-PUBKEY="$DASH_DIR/release-pubkey.asc"
 MANIFEST_NAME="MANIFEST.sha256"
 KEEP_BACKUPS=3
 
@@ -102,35 +99,7 @@ SHORT_REV="$(printf '%s' "$NEW_REV" | cut -c1-7)"
 SRC="$CLONE/airootfs"
 [ -d "$SRC/usr/local/share/ai-os" ] || die "The downloaded copy looks wrong (no dashboard found). Stopping to be safe — nothing was changed."
 
-# ---- 4) VERIFY the tag's GPG signature (Q5/Q39) -----------------------------
-# Verify against the key BAKED INTO THIS OS — never a key fetched just now.
-# A placeholder key (no real release key yet) downgrades to a loud warning so
-# dev/pre-key installs still function; a real key makes verification mandatory.
-verify_signature() {
-  if [ ! -f "$PUBKEY" ] || grep -q 'PLACEHOLDER' "$PUBKEY" 2>/dev/null; then
-    say ""
-    say "⚠ No release signing key is installed yet — skipping signature check."
-    say "  (This OS predates signed releases; updates are still over HTTPS.)"
-    return 0
-  fi
-  command -v gpg >/dev/null 2>&1 || die "gpg isn't installed, so the signed release can't be verified. Stopping to be safe."
-  local gnupg; gnupg="$(mktemp -d "$CACHE/gnupg.XXXXXX")" || die "Couldn't prepare signature verification."
-  chmod 700 "$gnupg"
-  if ! gpg --homedir "$gnupg" --batch --quiet --import "$PUBKEY" 2>/dev/null; then
-    rm -rf "$gnupg"; die "Couldn't load the release signing key. Stopping to be safe."
-  fi
-  say "Verifying the release signature..."
-  if GNUPGHOME="$gnupg" git -C "$CLONE" verify-tag "$LATEST_TAG" >/dev/null 2>&1; then
-    rm -rf "$gnupg"
-    say "✓ Signature valid — this release is genuinely from the project."
-    return 0
-  fi
-  rm -rf "$gnupg"
-  die "The release signature did NOT verify. Refusing to install (it could be tampered with). Nothing was changed."
-}
-verify_signature
-
-# ---- 5) already up to date? (Q16) -------------------------------------------
+# ---- 4) already up to date? (Q16) -------------------------------------------
 CUR_REV=""
 [ -f "$DASH_DIR/INSTALLED_REV" ] && CUR_REV="$(tr -d '[:space:]' < "$DASH_DIR/INSTALLED_REV" 2>/dev/null)"
 if [ -n "$CUR_REV" ] && [ "$CUR_REV" = "$NEW_REV" ]; then
@@ -141,7 +110,7 @@ if [ -n "$CUR_REV" ] && [ "$CUR_REV" = "$NEW_REV" ]; then
   exit 0
 fi
 
-# ---- 6) warn about locally-modified app files before overwriting (Q12/Q40) --
+# ---- 5) warn about locally-modified app files before overwriting (Q12/Q40) --
 # Uses the SHA256 manifest shipped with the CURRENTLY installed version. Any
 # managed file whose hash no longer matches has been changed locally (e.g. a
 # self-modification) and would be overwritten (it IS backed up first).
@@ -170,7 +139,7 @@ fi
 
 say ""
 
-# ---- 7) back up exactly what we're about to replace -------------------------
+# ---- 6) back up exactly what we're about to replace -------------------------
 say "Backing up current app files to:"
 say "  ${BACKUP/#$HOME/~}"
 for d in "$MANAGED_SHARE" "$MANAGED_LIB"; do
@@ -193,13 +162,13 @@ if [ -d "$BACKUP_ROOT" ]; then
 fi
 say ""
 
-# ---- 8) stage the new tree and verify it's complete (Q18) -------------------
+# ---- 7) stage the new tree and verify it's complete (Q18) -------------------
 say "Preparing the update..."
 rm -rf "$STAGE"; mkdir -p "$STAGE"
 cp -a "$SRC/usr" "$STAGE/" 2>/dev/null || die "Couldn't stage the update. Nothing was changed."
 [ -f "$STAGE/usr/local/share/ai-os/ai-os-dashboard.py" ] || die "Staged update is incomplete (no dashboard). Nothing was changed."
 
-# ---- 9) apply: copy managed trees + bin/ai-os-* as root ---------------------
+# ---- 8) apply: copy managed trees + bin/ai-os-* as root ---------------------
 sync_tree(){  # $1 = staged source dir, $2 = system dir
   sudo mkdir -p "$2"                              || return 1
   sudo cp -rf "$1/." "$2/"                        || return 1
@@ -216,7 +185,7 @@ for f in "$STAGE"/usr/local/bin/ai-os-* "$STAGE"/usr/local/bin/start-ai-os-*; do
   [ -e "$f" ] && sudo install -o root -g root -m 755 "$f" "/usr/local/bin/$(basename "$f")"
 done
 
-# ---- 10) manifest sync: remove managed files dropped in the new version (Q2)-
+# ---- 9) manifest sync: remove managed files dropped in the new version (Q2)-
 # Only ever removes files UNDER the managed roots that the NEW manifest no
 # longer lists. Never touches ~/workspace, user data, or anything off-list.
 NEW_MANIFEST="$STAGE/usr/local/share/ai-os/$MANIFEST_NAME"
@@ -245,11 +214,11 @@ fi
 # Drop stale compiled bytecode so the new source actually loads.
 sudo rm -rf /usr/local/share/ai-os/__pycache__ /usr/local/lib/ai-os/*/__pycache__ 2>/dev/null || true
 
-# ---- 11) record the installed version: tag + commit (Q54) -------------------
+# ---- 10) record the installed version: tag + commit (Q54) -------------------
 printf '%s\n' "$NEW_REV"   | sudo tee "$DASH_DIR/INSTALLED_REV"     >/dev/null 2>&1 || true
 printf '%s\n' "$LATEST_TAG" | sudo tee "$DASH_DIR/INSTALLED_VERSION" >/dev/null 2>&1 || true
 
-# ---- 12) append one concise line to the local update history (Q23/Q50) ------
+# ---- 11) append one concise line to the local update history (Q23/Q50) ------
 mkdir -p "$(dirname "$HISTORY")"
 printf '{"at":"%s","event":"update","from":"%s","to":"%s","commit":"%s","backup":"%s","result":"ok"}\n' \
   "$(date -u +%FT%TZ)" "${CUR_REV:-unknown}" "$LATEST_TAG" "$SHORT_REV" "${BACKUP/#$HOME/~}" >> "$HISTORY" 2>/dev/null || true
@@ -260,7 +229,7 @@ say ""
 say "The new version loads when the dashboard restarts."
 read -rp "Press Enter to restart now (the screen will blink), or close this window to do it later... " _
 
-# ---- 13) explicit, robust restart (Q7) --------------------------------------
+# ---- 12) explicit, robust restart (Q7) --------------------------------------
 # Drop a sentinel the launcher checks; relaunching directly (no full X teardown)
 # avoids the black-screen risk of kill-and-hope. The launcher loop relaunches
 # the dashboard when this file is present, then removes it.

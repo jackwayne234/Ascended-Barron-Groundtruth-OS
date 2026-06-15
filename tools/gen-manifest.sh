@@ -3,7 +3,7 @@
 # (paths + SHA256). This file ships in the OS and is what ai-os-update pulls to
 # detect locally-modified files (Q12/Q40) and remove files dropped in a release
 # (Q2). Run it whenever a managed file under usr/local changes, and commit the
-# result. make-release runs it and refuses to release if it isn't committed.
+# result. build.sh regenerates the same manifest into the staged ISO at build.
 set -euo pipefail
 REPO="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 A="$REPO/airootfs"
