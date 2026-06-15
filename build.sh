@@ -64,6 +64,27 @@ BUILD_REV="$(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo unknown)"
 printf '%s\n' "$BUILD_REV" > "$PROFILE/airootfs/usr/local/share/ai-os/INSTALLED_REV"
 say "    stamped INSTALLED_REV = $BUILD_REV"
 
+# Version marker = the release tag this commit IS (Q54). The dashboard shows
+# this friendly name; falls back to dev-<short> when not building from a tag.
+BUILD_TAG="$(git -C "$REPO" describe --tags --exact-match HEAD 2>/dev/null || echo "dev-$(printf '%s' "$BUILD_REV" | cut -c1-7)")"
+printf '%s\n' "$BUILD_TAG" > "$PROFILE/airootfs/usr/local/share/ai-os/INSTALLED_VERSION"
+say "    stamped INSTALLED_VERSION = $BUILD_TAG"
+
+# Manifest of exactly the OS-managed app files (paths + SHA256), so the updater
+# can detect locally-modified files (Q12/Q40) and remove files dropped in a new
+# release (Q2). Paths are root-relative (usr/local/...). Excludes the generated
+# version markers, the manifest itself, and bytecode caches.
+MAN="$PROFILE/airootfs/usr/local/share/ai-os/MANIFEST.sha256"
+# One find (multiple roots) — robust across shells. Under usr/local/bin only the
+# OS's own launchers count (ai-os-* and start-ai-os-*); elsewhere all files do.
+( cd "$PROFILE/airootfs" && \
+  find usr/local/share/ai-os usr/local/lib/ai-os usr/local/bin -type f \
+       ! -name INSTALLED_REV ! -name INSTALLED_VERSION ! -name MANIFEST.sha256 \
+       ! -path '*/__pycache__/*' \
+       \( ! -path 'usr/local/bin/*' -o -name 'ai-os-*' -o -name 'start-ai-os-*' \) \
+  | LC_ALL=C sort | xargs -r sha256sum ) > "$MAN"
+say "    manifest: $(wc -l < "$MAN") managed files"
+
 # ---------- 3. union package lists ----------
 say "==> [3/4] unioning package lists"
 { grep -vhE '^\s*(#|$)' "$RELENG/packages.x86_64" "$REPO/packages.x86_64"; } \
