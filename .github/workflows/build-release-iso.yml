@@ -77,6 +77,19 @@ jobs:
           ls -lh out
           cat out/SHA256SUMS
 
+      - name: Resolve release notes
+        id: notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          version='${{ steps.version.outputs.version }}'
+          notes=".github/releases/${version}.md"
+          if [ ! -f "$notes" ]; then
+            notes=".github/releases/v1.1.0.md"
+          fi
+          echo "path=$notes" >> "$GITHUB_OUTPUT"
+          echo "Using release notes: $notes"
+
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
@@ -92,7 +105,7 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.version }}
           name: GroundTruth OS ${{ steps.version.outputs.version }}
-          body_path: .github/releases/v1.1.0.md
+          body_path: ${{ steps.notes.outputs.path }}
           overwrite_files: true
           files: |
             ${{ steps.assets.outputs.iso }}

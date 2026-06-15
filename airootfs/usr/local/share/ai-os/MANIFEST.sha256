@@ -13,5 +13,5 @@ e1825239b8d6352f1d669853b73a2696e4ad7c2c967214119bb657b945e42deb  usr/local/bin/
 62de8985f78fc6c9f68c1498e2e6da25a6f64bd6be3a3728cdd749078ceef140  usr/local/lib/ai-os/ai_big_log/logger.py
 ed530c406bdb112cf6ded0271d28271c5d0ab17f8697e3698ebbc651e61a30ad  usr/local/lib/ai-os/ai_big_log/training_export.py
 1f01494230c0e5db6802b659e40724a1d6765ed3339fa582e421cfd7bd2bee79  usr/local/lib/ai-os/ai_big_log/training_qa.py
-2066b04cfd1ab893223bdea53dd72b347eb23d0756e5ecb199cd06f1b4bbf29d  usr/local/share/ai-os/CHANGELOG.md
+ee25455e901c53a5dc975be15607dc0ed96cd14f23c8df6dd059969cac1a00cd  usr/local/share/ai-os/CHANGELOG.md
 eb0dc1cd10e8cf107c2a6a7c1d7100b9479c4406c44afe84c08dcd8ee18a749f  usr/local/share/ai-os/ai-os-dashboard.py
