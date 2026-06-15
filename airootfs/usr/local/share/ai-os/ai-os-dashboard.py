@@ -1618,18 +1618,20 @@ class Dashboard:
         # of the "Apps" label. The Archive Apps tile that used to live in the
         # grid is removed (now redundant with the header button).
         def _apps_header_right(host):
-            bar = tk.Frame(host, bg=HEAD)
-            tk.Button(bar, text="＋ Create App",
-                      command=lambda: self._app_build_new(None),
-                      bg="#13233c", fg=INK, activebackground=ACCENT, activeforeground=INK,
-                      font=(FONT, 9, "bold"), relief="raised", bd=1,
-                      padx=8, pady=2, cursor="hand2").pack(side="left", padx=(0, 4))
-            tk.Button(bar, text="Archive Apps",
+            # Pack straight into the header (no inner bar frame) so there's
+            # no dead band between the "Apps" label and the buttons. Pack the
+            # rightmost button first; the second one slides in to its left.
+            tk.Button(host, text="Archive Apps",
                       command=self._archive_apps_dialog,
                       bg="#13233c", fg=INK, activebackground=ACCENT, activeforeground=INK,
                       font=(FONT, 9, "bold"), relief="raised", bd=1,
-                      padx=8, pady=2, cursor="hand2").pack(side="left")
-            return bar
+                      padx=8, pady=2, cursor="hand2").pack(side="right", padx=(0, 6), pady=4)
+            tk.Button(host, text="＋ Create App",
+                      command=lambda: self._app_build_new(None),
+                      bg="#13233c", fg=INK, activebackground=ACCENT, activeforeground=INK,
+                      font=(FONT, 9, "bold"), relief="raised", bd=1,
+                      padx=8, pady=2, cursor="hand2").pack(side="right", padx=(4, 0), pady=4)
+            return None
         box = self._box(parent, "Apps", header_right=_apps_header_right)
         # Takes the whole sidebar below the to-do list (the weather moved to a
         # bottom ticker) — room for many more app squares.
