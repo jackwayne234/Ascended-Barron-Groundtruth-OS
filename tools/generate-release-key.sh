@@ -49,12 +49,15 @@ say "Wrote public key -> $PUBKEY_DEST"
 # Encrypted offline backup of the PRIVATE key + a revocation certificate (Q38).
 mkdir -p "$BACKUP_DIR"; chmod 700 "$BACKUP_DIR"
 gpg --armor --export-secret-keys "$FPR" > "$BACKUP_DIR/release-private-key.asc"
-gpg --output "$BACKUP_DIR/release-revocation.asc" --gen-revoke "$FPR" <<'EOF' || true
-y
-0
-Pre-generated revocation certificate for the release key.
-y
-EOF
+# GnuPG 2.1+ auto-writes a revocation certificate at key-generation time; copy
+# that (reliable). Fall back to generating one non-interactively if it's absent.
+AUTO_REVOC="${GNUPGHOME:-$HOME/.gnupg}/openpgp-revocs.d/$FPR.rev"
+if [ -f "$AUTO_REVOC" ]; then
+  cp "$AUTO_REVOC" "$BACKUP_DIR/release-revocation.asc"
+else
+  printf 'y\n0\n\ny\n' | gpg --command-fd 0 --status-fd 2 --pinentry-mode loopback \
+    --output "$BACKUP_DIR/release-revocation.asc" --gen-revoke "$FPR" 2>/dev/null || true
+fi
 chmod 600 "$BACKUP_DIR"/*.asc 2>/dev/null || true
 
 say ""
