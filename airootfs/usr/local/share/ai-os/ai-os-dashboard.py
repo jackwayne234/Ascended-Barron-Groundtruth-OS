@@ -2480,7 +2480,6 @@ class Dashboard:
         tb(row2, "Done Tasks", self._eisen_show_done_tasks)
         tb(row2, "↔ Move", self._eisen_move)
         tb(row2, "🗑 Delete", self._eisen_delete, "#7f1d1d")
-        tb(row2, "⟳ Refresh", lambda: self._eisen_refresh())
 
         # One-line orientation so first-time users know the core loop now that
         # this view is the boot default (replaces the old welcome screen).
