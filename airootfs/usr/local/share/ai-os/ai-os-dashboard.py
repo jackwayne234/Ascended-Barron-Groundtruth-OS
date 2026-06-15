@@ -1212,7 +1212,7 @@ class Dashboard:
         # Install-to-disk (C10): only show when the installer is present (i.e. on
         # the live/installed OS, not on a dev host), so there's never a dead button.
         if shutil.which("ai-os-install-to-disk") or os.path.exists(INSTALLER_PATH):
-            tk.Button(footer, text="💾 Install to disk",
+            tk.Button(footer, text="Install to disk",
                       command=self._install_to_disk,
                       bg="#155e75", fg=INK, activebackground="#0e7490", activeforeground=INK,
                       relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
@@ -1626,7 +1626,7 @@ class Dashboard:
                       bg="#13233c", fg=INK, activebackground=ACCENT, activeforeground=INK,
                       font=(FONT, 9, "bold"), relief="raised", bd=1,
                       padx=8, pady=2, cursor="hand2").pack(side="right", padx=(0, 6), pady=4)
-            tk.Button(host, text="➕ Create App",
+            tk.Button(host, text="+ Create App",
                       command=lambda: self._app_build_new(None),
                       bg="#13233c", fg=INK, activebackground=ACCENT, activeforeground=INK,
                       font=(FONT, 9, "bold"), relief="raised", bd=1,
