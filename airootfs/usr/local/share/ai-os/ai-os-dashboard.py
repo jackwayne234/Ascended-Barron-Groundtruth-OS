@@ -1643,7 +1643,6 @@ class Dashboard:
             ("update_os", "Update OS", lambda: self.open_setup_script("Update OS", "/usr/local/bin/ai-os-update"), True),
             ("settings", "Settings", self.open_settings, True),
             ("training_qa_report", "Training Data QA Report", self.open_training_qa_report, True),
-            ("local_logs", "Local Logs", self.open_logs, True),
         ]
 
     def _builtin_by_key(self):
@@ -3087,81 +3086,6 @@ class Dashboard:
                   cursor="hand2").pack(side="right")
         self._popup_prep(win)
 
-    # ---- Local Logs (right pane) ----
-    def open_logs(self):
-        self._clear()
-        self.pane_title.set(WORK_ZONE_TITLE)
-        self._flash("Opened Local Logs")
-        log_event("panel_opened", "Local Logs", kind="user")
-
-        # Dashboard events live inside the AI big log among thousands of other
-        # records, so pre-filter lines by substring before paying for json.loads.
-        records = []
-        try:
-            if BIG_LOG_PATH.exists():
-                with BIG_LOG_PATH.open("r", encoding="utf-8") as f:
-                    for line in f:
-                        if '"record_type": "dashboard_event"' not in line:
-                            continue
-                        try:
-                            records.append(json.loads(line))
-                        except Exception:
-                            pass
-        except Exception:
-            pass
-        try:  # legacy history + anything written while the big log was unreachable
-            if LOG_PATH.exists():
-                for line in LOG_PATH.read_text(encoding="utf-8").splitlines():
-                    line = line.strip()
-                    if line:
-                        try:
-                            records.append(json.loads(line))
-                        except Exception:
-                            pass
-        except Exception:
-            pass
-        records.sort(key=lambda r: r.get("captured_at") or r.get("ts") or "")
-
-        counts = {"user": 0, "ai": 0, "file": 0, "system": 0}
-        for r in records:
-            counts[r.get("kind", "system")] = counts.get(r.get("kind", "system"), 0) + 1
-
-        tk.Label(self.content,
-                 text=("Every user action, AI response, and file change is recorded as "
-                       "training data in your local AI big log — to later "
-                       "fine-tune a model to your workflow."),
-                 bg=PANEL, fg=BODY, font=(FONT, 10), wraplength=900,
-                 justify="left").pack(anchor="w", padx=12, pady=(8, 0))
-        tk.Label(self.content,
-                 text=(f"{len(records)} events  ·  {counts['user']} user · {counts['ai']} AI · "
-                       f"{counts['file']} file · {counts['system']} system"),
-                 bg=PANEL, fg=MUTED, font=(FONT, 10)).pack(anchor="w", padx=12, pady=(2, 6))
-
-        out = tk.Text(self.content, bg="#020912", fg=BODY, font=("DejaVu Sans Mono", 10),
-                      relief="flat", padx=14, pady=12, wrap="word", highlightthickness=0)
-        out.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-        kind_colors = {"user": "#fde047", "ai": "#a7f3d0", "file": "#93c5fd", "system": "#94a3b8"}
-        for k, c in kind_colors.items():
-            out.tag_configure(k, foreground=c)
-        out.tag_configure("h", foreground=INK, font=(FONT, 11, "bold"))
-        out.tag_configure("ts", foreground="#475569")
-
-        if not records:
-            out.insert("end", "No events yet. Use the dashboard and they'll appear here.\n")
-        else:
-            out.insert("end", "Newest first:\n\n", "h")
-            for rec in reversed(records[-500:]):
-                kind = rec.get("kind", "system")
-                tag = kind if kind in kind_colors else "system"
-                ts = (rec.get("captured_at") or rec.get("ts") or "")[11:19]
-                out.insert("end", f"  {ts}  ", "ts")
-                out.insert("end", f"[{kind:^6}] ", tag)
-                out.insert("end", rec.get("action", ""), "h")
-                detail = rec.get("detail", "")
-                if detail:
-                    out.insert("end", f"  —  {detail}")
-                out.insert("end", "\n")
-        out.configure(state="disabled")
 
 
 def keep_dashboard_in_background(root):
@@ -3339,8 +3263,7 @@ def main():
     dash = Dashboard(root)
     # Optional: open a specific panel on launch (used for previews/screenshots).
     start = os.environ.get("AI_OS_START_VIEW", "").lower()
-    opener = {"eisenhower": dash.open_eisenhower,
-              "logs": dash.open_logs}.get(start)
+    opener = {"eisenhower": dash.open_eisenhower}.get(start)
     if opener:
         root.after(150, opener)
     # Optional: auto-open a placed app square on launch (previews/screenshots).
