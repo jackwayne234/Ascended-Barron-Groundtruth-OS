@@ -1179,7 +1179,7 @@ class Dashboard:
         # rather than show a dead control. The host always has wpctl, so this
         # branch is always taken there (unchanged).
         if shutil.which("wpctl") or shutil.which("amixer"):
-            tk.Label(footer, text="🔊 Volume", bg=HEAD, fg=BODY,
+            tk.Label(footer, text="Volume", bg=HEAD, fg=BODY,
                      font=(FONT, 10)).pack(side="left", padx=(8, 4))
             self.vol_var = tk.IntVar(value=self._volume_read())
             self._vol_after = self._vol_log_after = None
@@ -1199,7 +1199,7 @@ class Dashboard:
                   bg="#1e3a5f", fg=INK, activebackground="#2563eb", activeforeground=INK,
                   relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
                   cursor="hand2").pack(side="right", padx=(4, 6), pady=4)
-        tk.Button(footer, text="⏻ Power Off",
+        tk.Button(footer, text="Power Off",
                   command=lambda: self._power("poweroff", "Power Off"),
                   bg="#7f1d1d", fg=INK, activebackground="#b91c1c", activeforeground=INK,
                   relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
@@ -1743,7 +1743,7 @@ class Dashboard:
                               cursor="hand2", wraplength=160)
                 b.bind("<Button-3>", lambda _e, k=j: self._app_remove(k))
             else:
-                b = tk.Button(self.app_grid, text="＋ Add App",
+                b = tk.Button(self.app_grid, text="+ Add App",
                               command=self._app_pick,
                               bg="#0b1626", fg=MUTED, activebackground="#13233c",
                               activeforeground=BODY, relief="ridge", bd=1,
@@ -2427,12 +2427,12 @@ class Dashboard:
             tk.Button(bar, text=text, command=cmd, bg=color, fg=INK,
                       activebackground=ACCENT, activeforeground=INK, relief="raised", bd=2,
                       font=(FONT, 10, "bold"), padx=10, pady=5, cursor="hand2").pack(side="left", padx=3)
-        tb("➕ Add Task",         self._eisen_add,                   ACCENT2)
+        tb("+ Add Task",         self._eisen_add,                   ACCENT2)
         tb("Open Project Terminal", self.open_selected_project_terminal, ACCENT)
         tb("✓ Mark Done",        self._eisen_done)
         tb("↔ Move",             self._eisen_move)
         tb("Done Tasks",         self._eisen_show_done_tasks)
-        tb("🗑 Delete",          self._eisen_delete,                "#7f1d1d")
+        tb("Delete",          self._eisen_delete,                "#7f1d1d")
 
         # One-line orientation so first-time users know the core loop now that
         # this view is the boot default (replaces the old welcome screen).
