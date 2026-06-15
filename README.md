@@ -66,7 +66,7 @@ planning, decisions, steps, and progress.
    [Getting Started guide](docs/GETTING-STARTED.md)).
 3. **Flash** it to a USB stick (Rufus, balenaEtcher, or `dd`).
 4. **Boot** it — it comes up live so you can try it instantly. To keep it on a
-   portable external drive, use the guarded **Install to external drive** button.
+   portable external drive, use the guarded terminal installer.
    Treat external-drive installs as advanced and destructive: they erase the
    chosen drive after multiple confirmations.
 

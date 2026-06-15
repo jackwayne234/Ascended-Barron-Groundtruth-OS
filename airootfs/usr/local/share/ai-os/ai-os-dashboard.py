@@ -1209,14 +1209,9 @@ class Dashboard:
                   bg="#92400e", fg=INK, activebackground="#b45309", activeforeground=INK,
                   relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
                   cursor="hand2").pack(side="right", padx=4, pady=4)
-        tk.Button(footer, text="Install to external drive",
-                  command=self._install_to_disk,
-                  bg="#4a1d1d", fg=INK, activebackground="#7f1d1d", activeforeground=INK,
-                  relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
-                  cursor="hand2").pack(side="right", padx=4, pady=4)
-        # This launcher is intentionally visible but guarded: it opens a warning
-        # prompt first, then the terminal installer still requires exact drive
-        # selection and typing ERASE before touching anything.
+        # This flow is intentionally guarded: the terminal installer still
+        # requires exact drive selection and typing ERASE before touching
+        # anything.
 
     def _wifi_tick(self):
         text, color = wifi_indicator()

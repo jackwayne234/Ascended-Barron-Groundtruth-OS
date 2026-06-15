@@ -126,15 +126,14 @@ No AI is bundled — you choose. In the project terminal:
 
 The live USB is the safest way to try GroundTruth OS. If you want it to keep
 your changes between boots, put it on a removable external drive (USB SSD,
-portable HDD, or similar). The dashboard includes a guarded **Install to
-external drive** button for when you intentionally want to keep it.
+portable HDD, or similar). The dashboard does not expose a button for this;
+use the guarded terminal installer when you intentionally want to keep it.
 
 Installing to an external drive is advanced and destructive: it erases the whole
 target drive. Only do it on a spare machine after backing up anything important.
 
-If you intentionally want to install it, click **Install to external drive** in
-the dashboard footer. You can also run `sudo ai-os-install-to-disk` from a
-terminal.
+If you intentionally want to install it, run `sudo ai-os-install-to-disk` from
+a terminal.
 
 The installer lists your disks, refuses the USB you booted from, refuses
 non-external/internal disks, and refuses any disk currently in use. It then asks

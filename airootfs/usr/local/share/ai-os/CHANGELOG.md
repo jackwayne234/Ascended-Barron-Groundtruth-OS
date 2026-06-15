@@ -7,9 +7,9 @@ All notable changes to Ascended Barron: GroundTruth OS. This project uses
 ## v1.1.1 — 2026-06-15
 
 ### Changed
-- Restored a guarded **Install to external drive** footer button so live-USB
-  users have an obvious path to keep the OS on a portable drive, while
-  preserving the installer warning and typed `ERASE` confirmation flow.
+- Kept the external-drive install flow available from the terminal while
+  removing the dashboard footer button, so portable-drive users still have a
+  path to keep the OS without a casual click target.
 
 ## v1.1.0 — 2026-06-15
 
