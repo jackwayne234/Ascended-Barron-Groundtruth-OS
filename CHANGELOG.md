@@ -4,7 +4,7 @@ All notable changes to Ascended Barron: GroundTruth OS. This project uses
 [semantic versioning](https://semver.org/). Releases are on the
 [Releases page](../../releases).
 
-## v1.1.1 — 2026-06-15
+## v1.1.2 — 2026-06-15
 
 ### Changed
 - Kept the external-drive install flow available from the terminal while
