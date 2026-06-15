@@ -4,6 +4,25 @@ All notable changes to Ascended Barron: GroundTruth OS. This project uses
 [semantic versioning](https://semver.org/). Releases are on the
 [Releases page](../../releases).
 
+## v1.0.2 — 2026-06-15
+
+The OS can now update itself — so from this version on, you get future
+improvements by pressing a button instead of reinstalling.
+
+### Added
+- **"Update OS" button** — updates the OS in place from the official repo. It
+  backs up the current files first and only replaces the OS's own app files
+  (the dashboard and its helpers); your projects, data, and settings in
+  `~/workspace` are never touched. No reinstall, so nothing you've made is lost.
+- **"Update available" indicator** — the Update OS tile turns amber when a newer
+  version is published, so you know there's something to get. (The dashboard
+  does one small version check to the project's GitHub on startup to know this.)
+
+### Changed
+- **Boots straight into your to-do list** (the Eisenhower matrix) instead of an
+  empty welcome screen, with a one-line tip on how to start working a task. The
+  welcome text still appears when you close an app or terminal.
+
 ## v1.0.1 — 2026-06-15
 
 Dashboard polish and fixes, all gathered from real-hardware use.
