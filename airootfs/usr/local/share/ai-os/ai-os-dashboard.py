@@ -883,7 +883,7 @@ class Dashboard:
         tk.Label(footer, text="Esc = windowed/fullscreen     Ctrl+Q = quit",
                  bg=HEAD, fg=BODY, font=(FONT, 10), pady=6, padx=16).pack(side="left")
         # Open Terminal lives in Apps now, so the footer stays uncluttered.
-        self.resource_status = tk.StringVar(value="CPU --  RAM avail --  Live space --")
+        self.resource_status = tk.StringVar(value="CPU --  RAM avail --  Storage --")
         self.resource_label = tk.Label(footer, textvariable=self.resource_status,
                                        bg=HEAD, fg=GOOD, font=(FONT, 10, "bold"),
                                        pady=6, padx=10, cursor="hand2")
@@ -936,7 +936,7 @@ class Dashboard:
         disk = read_disk_percent("/")
         # Battery stays in the top-right header only. Keep the bottom resource
         # monitor focused on CPU/RAM/live changes space so it does not duplicate the header.
-        parts = [fmt_pct("CPU", cpu), fmt_ram_available(mem_status), fmt_pct("Live space", disk)]
+        parts = [fmt_pct("CPU", cpu), fmt_ram_available(mem_status), fmt_pct("Storage", disk)]
         if hasattr(self, "resource_status"):
             self.resource_status.set("  •  ".join(parts))
         if hasattr(self, "resource_label"):
