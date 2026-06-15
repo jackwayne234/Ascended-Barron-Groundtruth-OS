@@ -56,6 +56,14 @@ cp -a "$REPO/profiledef.sh" "$PROFILE/profiledef.sh"
 [ -f "$REPO/pacman.conf" ] && cp -a "$REPO/pacman.conf" "$PROFILE/pacman.conf"
 cp -a "$REPO/airootfs/." "$PROFILE/airootfs/"
 
+# stamp the build's commit into the staged ISO so the installed OS has a
+# self-update baseline (the dashboard compares this to GitHub; ai-os-update
+# rewrites it on each update). Stamped into the staged profile only, never the
+# repo (it would otherwise always be one commit stale).
+BUILD_REV="$(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo unknown)"
+printf '%s\n' "$BUILD_REV" > "$PROFILE/airootfs/usr/local/share/ai-os/INSTALLED_REV"
+say "    stamped INSTALLED_REV = $BUILD_REV"
+
 # ---------- 3. union package lists ----------
 say "==> [3/4] unioning package lists"
 { grep -vhE '^\s*(#|$)' "$RELENG/packages.x86_64" "$REPO/packages.x86_64"; } \

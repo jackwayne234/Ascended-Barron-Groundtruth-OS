@@ -35,6 +35,7 @@ GOOD = "#a7f3d0"
 ACCENT = "#2563eb"
 ACCENT2 = "#16a34a"
 MUTED = "#64748b"
+AMBER = "#d97706"   # "update available" highlight on the Update OS tile
 
 FONT = "DejaVu Sans"
 HOME = pathlib.Path.home()
@@ -77,6 +78,10 @@ STATE_DIR = HOME / ".local" / "state" / "ai-os"
 # The log lives in a fixed per-user data dir (no hard-coded project folder).
 SESSION_ID = uuid.uuid4().hex[:8]
 DASH_DIR = pathlib.Path(__file__).resolve().parent
+# Self-update: the public repo the "Update OS" tile pulls from, and the file
+# that records the installed commit (written by ai-os-update, stamped at build).
+UPDATE_REPO = "https://github.com/jackwayne234/Ascended-Barron-Groundtruth-OS.git"
+INSTALLED_REV_FILE = DASH_DIR / "INSTALLED_REV"
 # In VM mode DASH_DIR is read-only squashfs, so the fallback log lives in the
 # writable state dir instead; on the host it stays beside the script (unchanged).
 LOG_DIR = (STATE_DIR / "logs") if VM else (DASH_DIR / "logs")
@@ -902,6 +907,42 @@ class Dashboard:
         # Boot straight into the to-do list — it's the heart of the OS. The
         # welcome/empty-space view still shows when you close an app or terminal.
         self.open_eisenhower()
+        # Quietly check GitHub for a newer version; the Update OS tile turns
+        # amber if one is available. Delayed + threaded so it never slows boot.
+        self.update_available = False
+        self.root.after(3000, self._schedule_update_check)
+
+    # ---- self-update: is a newer version available? ----
+    def _schedule_update_check(self):
+        """Kick off a background version check now, then re-check every 6 hours."""
+        threading.Thread(target=self._update_check_worker, daemon=True).start()
+        self.root.after(6 * 60 * 60 * 1000, self._schedule_update_check)
+
+    def _update_check_worker(self):
+        """Compare the installed commit against the repo's latest. Fail silent
+        (no network / no baseline = leave the tile alone — never a false alarm)."""
+        try:
+            local = INSTALLED_REV_FILE.read_text(encoding="utf-8").strip().split()[0]
+        except Exception:
+            local = ""
+        if not local:
+            return  # unknown baseline (e.g. pre-update-feature ISO) — don't flag
+        try:
+            out = subprocess.check_output(
+                ["git", "ls-remote", UPDATE_REPO, "refs/heads/main"],
+                timeout=20, text=True, stderr=subprocess.DEVNULL)
+            remote = out.split()[0] if out.strip() else ""
+        except Exception:
+            return  # offline or git unavailable — stay quiet
+        if remote and remote != local and not remote.startswith(local):
+            self.root.after(0, self._set_update_available)
+
+    def _set_update_available(self):
+        if not getattr(self, "update_available", False):
+            self.update_available = True
+            log_event("update_available", "a newer version is on GitHub", kind="system")
+            if hasattr(self, "app_grid"):
+                self._draw_app_tiles()
 
     # ---- footer: volume + power controls ----
     def _build_footer(self, root):
@@ -1361,6 +1402,7 @@ class Dashboard:
             ("router_check", "2 Router Check", lambda: self.open_setup_script("2 Router Check", "/usr/local/bin/ai-os-router-check"), True),
             ("internet_check", "Internet Check", lambda: self.open_setup_script("Internet Check", "/usr/local/bin/ai-os-internet-check"), True),
             ("todo_list", "To-Do List", self.open_eisenhower, False),
+            ("update_os", "Update OS", lambda: self.open_setup_script("Update OS", "/usr/local/bin/ai-os-update"), True),
             ("training_qa_report", "Training Data QA Report", self.open_training_qa_report, True),
             ("local_logs", "Local Logs", self.open_logs, True),
         ]
@@ -1436,7 +1478,13 @@ class Dashboard:
                     if key not in archived]
         builtins.append(("archive_apps", "Archive Apps", self._archive_apps_dialog, False))
         for i, (key, name, cmd, archiveable) in enumerate(builtins):
-            b = tk.Button(self.app_grid, text=name, command=cmd, bg="#13233c", fg=INK,
+            tile_bg = "#13233c"
+            tile_name = name
+            # Update OS goes amber + relabels when a newer version is on GitHub.
+            if key == "update_os" and getattr(self, "update_available", False):
+                tile_bg = AMBER
+                tile_name = "Update OS\n(update available)"
+            b = tk.Button(self.app_grid, text=tile_name, command=cmd, bg=tile_bg, fg=INK,
                           activebackground=ACCENT, activeforeground=INK,
                           relief="raised", bd=2, font=(FONT, 10, "bold"),
                           padx=6, pady=tp, cursor="hand2", wraplength=160)

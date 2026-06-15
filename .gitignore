@@ -53,3 +53,6 @@ Thumbs.db
 logs/
 tmp/
 .cache/
+
+# Build-time version stamp — generated, never committed (see build.sh)
+airootfs/usr/local/share/ai-os/INSTALLED_REV

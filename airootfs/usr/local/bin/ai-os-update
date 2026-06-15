@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# ai-os-update — Ascended Barron: GroundTruth OS in-place updater.
+#
+# Pulls the latest published app code from the public GitHub repo and installs
+# it over the current copy, AFTER backing up what it replaces. It touches ONLY
+# the OS's own app files under /usr/local (the dashboard + the ai-os-* helpers
+# and libraries) — never your projects, your data, your settings, or system
+# packages. Your work in ~/workspace is left completely alone.
+set -uo pipefail
+
+REPO_URL="https://github.com/jackwayne234/Ascended-Barron-Groundtruth-OS.git"
+CACHE="$HOME/.cache/ai-os/update"
+CLONE="$CACHE/repo"
+STAMP="$(date +%Y%m%d-%H%M%S)"
+BACKUP="$HOME/.local/share/ai-os/update-backups/$STAMP"
+
+say(){ printf '%s\n' "$*"; }
+die(){ say ""; say "✗ $*"; say ""; read -rp "Press Enter to close..." _; exit 1; }
+
+clear 2>/dev/null || true
+say "Ascended Barron: GroundTruth OS — Update"
+say "========================================"
+say ""
+
+command -v git >/dev/null 2>&1 || die "git isn't installed, so the updater can't run."
+
+# 1) Fetch the latest published code (HTTPS, only ever from this one repo).
+say "Checking GitHub for the latest version..."
+mkdir -p "$CACHE"
+if [ -d "$CLONE/.git" ]; then
+  git -C "$CLONE" remote set-url origin "$REPO_URL" 2>/dev/null
+  git -C "$CLONE" fetch --depth 1 origin main -q || die "Couldn't reach GitHub. Check your internet connection and try again."
+  git -C "$CLONE" reset --hard origin/main -q   || die "Couldn't apply the downloaded update."
+else
+  rm -rf "$CLONE"
+  git clone --depth 1 "$REPO_URL" "$CLONE" -q   || die "Couldn't download the update. Check your internet connection and try again."
+fi
+
+SRC="$CLONE/airootfs"
+[ -d "$SRC/usr/local/share/ai-os" ] || die "The downloaded copy looks wrong (no dashboard found). Stopping to be safe — nothing was changed."
+NEW_REV="$(git -C "$CLONE" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+say "Latest version: $NEW_REV"
+say ""
+
+# 2) Back up exactly what we're about to replace (so an update can be undone).
+say "Backing up current app files to:"
+say "  ${BACKUP/#$HOME/~}"
+for d in /usr/local/share/ai-os /usr/local/lib/ai-os; do
+  if [ -e "$d" ]; then mkdir -p "$BACKUP$(dirname "$d")" && cp -a "$d" "$BACKUP$(dirname "$d")/" 2>/dev/null; fi
+done
+mkdir -p "$BACKUP/usr/local/bin"
+for f in /usr/local/bin/ai-os-*; do
+  [ -e "$f" ] && cp -a "$f" "$BACKUP/usr/local/bin/" 2>/dev/null
+done
+say ""
+
+# 3) Install the new app files as root. Copies in place; never deletes, so any
+#    private/local extras you've added are kept.
+sync_tree(){  # $1 = source dir in the clone, $2 = system dir
+  sudo mkdir -p "$2"                              || return 1
+  sudo cp -rf "$1/." "$2/"                        || return 1
+  sudo chown -R root:root "$2"                    || return 1
+  sudo chmod -R u=rwX,go=rX "$2"                  || return 1
+}
+
+say "Installing the update..."
+sync_tree "$SRC/usr/local/share/ai-os" /usr/local/share/ai-os || die "Install failed while copying the dashboard. Your backup is at ${BACKUP/#$HOME/~}."
+if [ -d "$SRC/usr/local/lib/ai-os" ]; then
+  sync_tree "$SRC/usr/local/lib/ai-os" /usr/local/lib/ai-os || die "Install failed while copying the libraries. Your backup is at ${BACKUP/#$HOME/~}."
+fi
+for f in "$SRC"/usr/local/bin/ai-os-*; do
+  [ -e "$f" ] && sudo install -o root -g root -m 755 "$f" "/usr/local/bin/$(basename "$f")"
+done
+# Drop stale compiled bytecode so the new source actually loads.
+sudo rm -rf /usr/local/share/ai-os/__pycache__ /usr/local/lib/ai-os/*/__pycache__ 2>/dev/null || true
+
+# Record the installed commit (full SHA) so the dashboard knows when it's behind.
+git -C "$CLONE" rev-parse HEAD | sudo tee /usr/local/share/ai-os/INSTALLED_REV >/dev/null 2>&1 || true
+
+say ""
+say "✓ Update complete — now on version $NEW_REV."
+say ""
+say "The new version loads when the dashboard restarts."
+read -rp "Press Enter to restart now (the screen will blink), or close this window to do it later... " _
+pkill -TERM -f "[a]i-os-dashboard.py" 2>/dev/null || true
