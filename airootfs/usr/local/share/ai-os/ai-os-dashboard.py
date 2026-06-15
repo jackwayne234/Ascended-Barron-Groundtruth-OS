@@ -1626,7 +1626,7 @@ class Dashboard:
                       bg="#13233c", fg=INK, activebackground=ACCENT, activeforeground=INK,
                       font=(FONT, 9, "bold"), relief="raised", bd=1,
                       padx=8, pady=2, cursor="hand2").pack(side="right", padx=(0, 6), pady=4)
-            tk.Button(host, text="＋ Create App",
+            tk.Button(host, text="➕ Create App",
                       command=lambda: self._app_build_new(None),
                       bg="#13233c", fg=INK, activebackground=ACCENT, activeforeground=INK,
                       font=(FONT, 9, "bold"), relief="raised", bd=1,
