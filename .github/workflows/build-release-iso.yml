@@ -52,9 +52,12 @@ jobs:
             -v "$PWD/work:/work" \
             archlinux:latest \
             bash -lc 'set -euo pipefail
+              pacman-key --init
               pacman -Sy --noconfirm archlinux-keyring
-              pacman -Syu --noconfirm archiso git
+              pacman-key --populate archlinux
+              pacman -Syu --noconfirm archiso git grub
               cd /repo
+              git config --global --add safe.directory /repo
               ./build.sh --work /work --out /out
             '
 
