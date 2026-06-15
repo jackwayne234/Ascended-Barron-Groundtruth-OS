@@ -1,0 +1,44 @@
+# Changelog
+
+All notable changes to Ascended Barron: GroundTruth OS. This project uses
+[semantic versioning](https://semver.org/). Releases are on the
+[Releases page](../../releases).
+
+## v1.0.1 — 2026-06-15
+
+Dashboard polish and fixes, all gathered from real-hardware use.
+
+### Added
+- **WiFi status indicator** in the header — shows the connected network (or "No
+  Wi-Fi" / "Wired"); click it to open WiFi Setup. Read-only via `nmcli`, no
+  geolocation.
+- **Timezone picker** — click the clock to choose your timezone from a filterable
+  list (the OS ships as UTC). Fully manual; no GPS/location tracking.
+- **"Build a new app" button** in *Add App* — names a project folder, creates a
+  `ground-truth.md` in it, and opens a terminal to start building, then place the
+  finished app in a square.
+- **Chromium** now appears in the app grid out of the box (a Desktop launcher was
+  missing before).
+- **Weather widget bundled** — the bottom weather ticker now works instead of
+  showing "Weather unavailable" (set your city in
+  `~/workspace/desktop weather app/config.json`; defaults to New York, NY).
+- **Tap-to-click** enabled on touchpads (a light tap clicks; no need to press the
+  pad down).
+
+### Changed
+- Renamed the resource label **"Live space" → "Storage."**
+- WiFi and battery indicators are now **plain text** (the emoji icons rendered as
+  hollow outlines with no emoji font) and **fixed-width**, so the header no longer
+  shifts as status changes.
+
+## v1.0.0 — 2026-06-14
+
+Initial public release.
+
+- AI-native project workflow: create a task → **Work with AI** → project folder +
+  `ground-truth.md` + a terminal in it. Bring your own AI.
+- Live "try it" boot + **Install to disk** (UEFI + legacy BIOS; single-user, boots
+  straight to the dashboard; no login/password).
+- Local-only action logging with export-to-training-data.
+- Three sample projects + a sample training-data export.
+- The OS can improve itself through its own workflow.
