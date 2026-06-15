@@ -1636,7 +1636,6 @@ class Dashboard:
         return [
             ("open_terminal", "Open Terminal", self.open_plain_terminal, False),
             ("todo_list", "To-Do List", self.open_eisenhower, False),
-            ("update_os", "Update OS", lambda: self.open_setup_script("Update OS", "/usr/local/bin/ai-os-update"), True),
             ("settings", "Settings", self.open_settings, True),
         ]
 
@@ -1714,10 +1713,6 @@ class Dashboard:
         for i, (key, name, cmd, archiveable) in enumerate(builtins):
             tile_bg = "#13233c"
             tile_name = name
-            # Update OS goes amber + relabels when a newer version is on GitHub.
-            if key == "update_os" and getattr(self, "update_available", False):
-                tile_bg = AMBER
-                tile_name = "Update OS\n(update available)"
             b = tk.Button(self.app_grid, text=tile_name, command=cmd, bg=tile_bg, fg=INK,
                           activebackground=ACCENT, activeforeground=INK,
                           relief="raised", bd=2, font=(FONT, 10, "bold"),
