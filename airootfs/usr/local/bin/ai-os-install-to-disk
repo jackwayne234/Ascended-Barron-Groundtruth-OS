@@ -1,0 +1,311 @@
+#!/usr/bin/env bash
+# Ascended Barron: GroundTruth OS — install-to-disk (C10).
+#
+# Copies the running LIVE system onto a chosen disk and makes it bootable on
+# both UEFI and legacy BIOS machines. By design:
+#   * single auto-login user "barron", NO login screen, NO password, NO admin
+#     password (passwordless sudo) — the live system already ships this way, and
+#     we just copy it down, so there is nothing to ask the user here.
+#   * whole-disk automatic layout (this ERASES the chosen disk).
+#   * maximum safety guards: list disks, refuse the live medium and any in-use
+#     disk, require the exact disk name typed, final ERASE confirmation.
+#
+# Test seams (used ONLY by the desktop loop-device harness, never in normal use):
+#   AI_OS_INSTALL_ALLOW_LOOP=1     permit /dev/loop* as a target
+#   AI_OS_INSTALL_SKIP_BOOTLOADER=1  skip arch-chroot/grub/initramfs (no Arch env)
+#   AI_OS_INSTALL_SOURCE_ROOT=DIR  copy from DIR instead of "/" (tiny fake rootfs)
+#   --target DEV                   non-interactive target disk
+#   --assume-yes                   skip interactive confirmations (pairs w/ --target)
+#   --dry-run                      print the plan, change nothing
+set -u
+
+PROG="ai-os-install-to-disk"
+INSTALL_USER="barron"            # locked account name (Q3)
+HOSTNAME_NEW="groundtruth-os"
+ESP_SIZE_MIB=512                 # EFI System Partition
+BIOSBOOT_SIZE_MIB=2             # BIOS boot partition (for GRUB on GPT+BIOS)
+
+DRY_RUN=0
+ASSUME_YES=0
+TARGET=""
+ALLOW_LOOP="${AI_OS_INSTALL_ALLOW_LOOP:-0}"
+SKIP_BOOTLOADER="${AI_OS_INSTALL_SKIP_BOOTLOADER:-0}"
+SRC_ROOT="${AI_OS_INSTALL_SOURCE_ROOT:-/}"
+
+# ---------- small helpers ----------
+c_red()  { printf '\033[31m%s\033[0m' "$*"; }
+c_grn()  { printf '\033[32m%s\033[0m' "$*"; }
+c_ylw()  { printf '\033[33m%s\033[0m' "$*"; }
+say()    { printf '%s\n' "$*"; }
+hr()     { printf '%s\n' "════════════════════════════════════════════════════════════════"; }
+die()    { printf '\n%s %s\n' "$(c_red 'ERROR:')" "$*" >&2; exit 1; }
+run()    { if [ "$DRY_RUN" = 1 ]; then say "  [dry-run] $*"; else "$@"; fi; }
+
+# partition node naming: sda -> sda2, nvme0n1 -> nvme0n1p2, loop0 -> loop0p2
+part_node() { case "$1" in *[0-9]) printf '%sp%s\n' "$1" "$2" ;; *) printf '%s%s\n' "$1" "$2" ;; esac; }
+
+usage() {
+  cat <<EOF
+$PROG — install Ascended Barron: GroundTruth OS to a disk.
+
+Usage: sudo $PROG [options]
+  --target DEV     install to DEV non-interactively (e.g. /dev/sda, /dev/nvme0n1)
+  --assume-yes     skip confirmation prompts (only with --target)
+  --dry-run        show what would happen without changing anything
+  -h, --help       this help
+EOF
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --target) TARGET="${2:-}"; shift 2 ;;
+    --assume-yes) ASSUME_YES=1; shift ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) die "unknown option: $1 (try --help)" ;;
+  esac
+done
+
+# Test seam: when sourced with AI_OS_INSTALL_LIB_ONLY=1, stop here so a harness
+# can unit-test the pure helpers (part_node, etc.) without running the installer.
+[ "${AI_OS_INSTALL_LIB_ONLY:-0}" = 1 ] && return 0 2>/dev/null
+
+[ "$(id -u)" = 0 ] || die "must run as root (the live system uses passwordless sudo: 'sudo $PROG')."
+
+# ---------- firmware mode ----------
+if [ -d /sys/firmware/efi/efivars ]; then FW="uefi"; else FW="bios"; fi
+
+# ---------- discover the live medium so we can refuse it ----------
+# archiso boots from a device mounted at /run/archiso/bootmnt; resolve its parent
+# disk. Also treat the disk currently hosting "/" as off-limits.
+live_parent_disk() {
+  local src dev parent
+  for mnt in /run/archiso/bootmnt /run/archiso/airootfs /; do
+    src="$(findmnt -no SOURCE "$mnt" 2>/dev/null || true)"
+    [ -n "$src" ] || continue
+    case "$src" in
+      /dev/*) dev="$src" ;;
+      *) continue ;;
+    esac
+    parent="$(lsblk -no PKNAME "$dev" 2>/dev/null | head -n1)"
+    if [ -n "$parent" ]; then printf '/dev/%s\n' "$parent"; else printf '%s\n' "$dev"; fi
+  done | sort -u
+}
+LIVE_DISKS="$(live_parent_disk || true)"
+
+is_live_disk()  { printf '%s\n' "$LIVE_DISKS" | grep -qx "$1"; }
+disk_in_use()   { lsblk -nro MOUNTPOINT "$1" 2>/dev/null | grep -q .; }   # any partition mounted
+
+# ---------- candidate disks ----------
+list_disks() {
+  # name size model — real disks only (plus loop if explicitly allowed for tests)
+  local types="disk"
+  [ "$ALLOW_LOOP" = 1 ] && types="disk|loop"
+  lsblk -dnro NAME,SIZE,MODEL,TYPE 2>/dev/null | awk -v t="^($types)\$" '$NF ~ t'
+}
+
+# ---------- banner ----------
+clear 2>/dev/null || true
+hr
+say "  $(c_grn 'Ascended Barron: GroundTruth OS — Install to disk')"
+say ""
+say "  Firmware detected: $(c_ylw "$([ "$FW" = uefi ] && echo 'UEFI' || echo 'Legacy BIOS')")"
+say "  This installs a single-user system that boots straight to the"
+say "  dashboard — no login, no password (you can add one later)."
+say ""
+say "  $(c_red 'WARNING:') installing ERASES THE ENTIRE chosen disk."
+hr
+say ""
+
+# ---------- show disks ----------
+say "Disks on this machine:"
+say ""
+printf '  %-12s %-8s %s\n' "NAME" "SIZE" "MODEL"
+HAVE_ANY=0
+while read -r name size model _; do
+  [ -n "${name:-}" ] || continue
+  HAVE_ANY=1
+  dev="/dev/$name"
+  flag=""
+  if is_live_disk "$dev"; then flag="$(c_red '[LIVE MEDIUM — cannot use]')"
+  elif disk_in_use "$dev"; then flag="$(c_red '[in use — cannot use]')"; fi
+  printf '  %-12s %-8s %s %s\n' "$name" "$size" "${model:-?}" "$flag"
+done <<EOF
+$(list_disks)
+EOF
+[ "$HAVE_ANY" = 1 ] || die "no installable disks found."
+say ""
+
+# ---------- choose target ----------
+choose_target() {
+  if [ -n "$TARGET" ]; then printf '%s\n' "$TARGET"; return; fi
+  local ans
+  read -rp "Type the EXACT disk name to install to (e.g. sda, nvme0n1), or 'q' to quit: " ans
+  [ "$ans" = q ] && { say "Cancelled."; exit 0; }
+  printf '/dev/%s\n' "$ans"
+}
+DEV="$(choose_target)"
+case "$DEV" in /dev/*) ;; *) DEV="/dev/$DEV" ;; esac
+
+# ---------- validate + safety refusals (the heart of the guards) ----------
+[ -b "$DEV" ] || die "$DEV is not a block device."
+dtype="$(lsblk -dnro TYPE "$DEV" 2>/dev/null | head -n1)"
+if [ "$dtype" = loop ] && [ "$ALLOW_LOOP" != 1 ]; then die "$DEV is a loop device (not a real disk)."; fi
+[ "$dtype" = disk ] || [ "$ALLOW_LOOP" = 1 ] || die "$DEV is not a whole disk (type=$dtype)."
+is_live_disk "$DEV" && die "$DEV is the live medium you booted from — refusing to erase it."
+disk_in_use "$DEV"  && die "$DEV has a mounted partition (in use) — refusing to erase it."
+
+DSIZE="$(lsblk -dnro SIZE "$DEV" 2>/dev/null | head -n1)"
+DMODEL="$(lsblk -dnro MODEL "$DEV" 2>/dev/null | head -n1)"
+
+# ---------- final confirmation ----------
+say ""
+hr
+say "  About to $(c_red 'ERASE') and install onto:"
+say "    $(c_ylw "$DEV")   ${DSIZE:-?}   ${DMODEL:-?}"
+say "  EVERYTHING on this disk will be permanently destroyed."
+hr
+if [ "$ASSUME_YES" != 1 ] && [ "$DRY_RUN" != 1 ]; then
+  short="${DEV#/dev/}"
+  read -rp "To confirm, re-type the disk name '$short' exactly: " c1
+  [ "$c1" = "$short" ] || die "name did not match ('$c1' != '$short') — aborted, nothing changed."
+  read -rp "Last chance — type ERASE to wipe $DEV and install: " c2
+  [ "$c2" = "ERASE" ] || die "not confirmed — aborted, nothing changed."
+fi
+
+# ---------- partition (GPT: BIOS-boot + ESP + root) ----------
+say ""
+say "$(c_grn '==>') Partitioning $DEV (GPT: bios-boot + ESP + root)…"
+run wipefs -a "$DEV"
+run sgdisk -Z "$DEV"
+run sgdisk -n1:0:+${BIOSBOOT_SIZE_MIB}M -t1:ef02 -c1:"BIOSboot" "$DEV"
+run sgdisk -n2:0:+${ESP_SIZE_MIB}M    -t2:ef00 -c2:"ESP"      "$DEV"
+run sgdisk -n3:0:0                     -t3:8300 -c3:"groundtruth-root" "$DEV"
+run partprobe "$DEV" 2>/dev/null || true
+run udevadm settle 2>/dev/null || true
+
+# partition node naming (sda2 vs nvme0n1p2)
+ESP="$(part_node "$DEV" 2)"; ROOT="$(part_node "$DEV" 3)"
+
+# ---------- format ----------
+say "$(c_grn '==>') Formatting (ESP=FAT32, root=ext4)…"
+run mkfs.fat -F32 "$ESP"
+run mkfs.ext4 -F "$ROOT"
+
+# ---------- mount ----------
+MNT="$(mktemp -d /tmp/ai-os-install.XXXXXX)"
+say "$(c_grn '==>') Mounting target at $MNT…"
+run mount "$ROOT" "$MNT"
+run mkdir -p "$MNT/boot"
+run mount "$ESP" "$MNT/boot"
+
+# ---------- copy the live system ----------
+say "$(c_grn '==>') Copying the live system to disk (this is the slow part)…"
+RSYNC_EXCLUDES=(
+  --exclude=/dev/* --exclude=/proc/* --exclude=/sys/* --exclude=/tmp/*
+  --exclude=/run/* --exclude=/mnt/* --exclude=/media/* --exclude=/lost+found
+  --exclude=/run/archiso/* --exclude="$MNT"
+)
+if [ "$DRY_RUN" = 1 ]; then
+  say "  [dry-run] rsync -aAXH ${SRC_ROOT%/}/ -> $MNT (with live/runtime excludes)"
+else
+  rsync -aAXH --info=progress2 "${RSYNC_EXCLUDES[@]}" "${SRC_ROOT%/}/" "$MNT/" \
+    || die "copy failed — target left mounted at $MNT for inspection."
+  mkdir -p "$MNT"/{dev,proc,sys,run,tmp,mnt,media}
+  chmod 1777 "$MNT/tmp"
+fi
+
+# ---------- fstab ----------
+say "$(c_grn '==>') Writing /etc/fstab…"
+if [ "$DRY_RUN" = 1 ]; then
+  say "  [dry-run] genfstab -U $MNT > $MNT/etc/fstab"
+else
+  if command -v genfstab >/dev/null 2>&1; then
+    genfstab -U "$MNT" > "$MNT/etc/fstab"
+  else
+    {
+      printf 'UUID=%s  /      ext4  rw,relatime  0 1\n' "$(blkid -s UUID -o value "$ROOT")"
+      printf 'UUID=%s  /boot  vfat  rw,relatime  0 2\n' "$(blkid -s UUID -o value "$ESP")"
+    } > "$MNT/etc/fstab"
+  fi
+fi
+
+# ---------- de-live the installed system + bootloader (needs Arch chroot) ----------
+if [ "$SKIP_BOOTLOADER" = 1 ]; then
+  say "$(c_ylw '==>') Skipping bootloader/chroot (test mode)."
+else
+  say "$(c_grn '==>') Installing bootloader (UEFI + BIOS) and finalizing…"
+  if [ "$DRY_RUN" = 1 ]; then
+    say "  [dry-run] arch-chroot: standard mkinitcpio, grub-install (efi+pc), grub-mkconfig, drop archiso bits"
+  else
+    cat > "$MNT/root/.ai-os-finalize.sh" <<'CHROOT'
+#!/usr/bin/env bash
+set -e -u
+# Standard initramfs config (the live archiso image ships an archiso-specific
+# mkinitcpio.conf + preset that won't work on an installed system).
+cat > /etc/mkinitcpio.conf <<'MK'
+MODULES=()
+BINARIES=()
+FILES=()
+HOOKS=(base udev autodetect microcode modconf kms keyboard keymap consolefont block filesystems fsck)
+MK
+cat > /etc/mkinitcpio.d/linux.preset <<'PRE'
+ALL_config="/etc/mkinitcpio.conf"
+ALL_kver="/boot/vmlinuz-linux"
+PRESETS=('default' 'fallback')
+default_image="/boot/initramfs-linux.img"
+fallback_image="/boot/initramfs-linux-fallback.img"
+fallback_options="-S autodetect"
+PRE
+# archiso strips the kernel image out of /boot; restore it from the modules tree
+# (fully offline — no pacman/network needed at install time).
+for kdir in /usr/lib/modules/*/; do
+  [ -f "${kdir}vmlinuz" ] && cp -f "${kdir}vmlinuz" /boot/vmlinuz-linux
+done
+# Remove live-only / archiso pieces if present.
+systemctl disable pacman-init.service choose-mirror.service 2>/dev/null || true
+rm -f /etc/systemd/system/getty@tty1.service.d/autologin.conf.pacsave 2>/dev/null || true
+rm -f /root/.automated_script.sh /root/.zlogin 2>/dev/null || true
+rm -f /etc/mkinitcpio.conf.d/archiso.conf /etc/mkinitcpio.d/linux.preset.pacnew 2>/dev/null || true
+rm -rf /etc/systemd/system/*.target.wants/livecd* 2>/dev/null || true
+# Hostname.
+echo "groundtruth-os" > /etc/hostname
+# Regenerate initramfs for the real hardware.
+mkinitcpio -P
+# GRUB: install for whatever firmware is present (both when possible).
+if [ -d /sys/firmware/efi/efivars ]; then
+  grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GROUNDTRUTH --removable
+fi
+grub-install --target=i386-pc "@DEV@" || true
+grub-mkconfig -o /boot/grub/grub.cfg
+CHROOT
+    sed -i "s|@DEV@|$DEV|" "$MNT/root/.ai-os-finalize.sh"
+    chmod +x "$MNT/root/.ai-os-finalize.sh"
+    if command -v arch-chroot >/dev/null 2>&1; then
+      arch-chroot "$MNT" /root/.ai-os-finalize.sh || die "finalize (chroot) failed; target at $MNT."
+    else
+      for d in dev proc sys run; do mount --rbind "/$d" "$MNT/$d"; mount --make-rslave "$MNT/$d"; done
+      chroot "$MNT" /root/.ai-os-finalize.sh || die "finalize (chroot) failed; target at $MNT."
+    fi
+    rm -f "$MNT/root/.ai-os-finalize.sh"
+  fi
+fi
+
+# ---------- unmount + done ----------
+say "$(c_grn '==>') Unmounting…"
+run sync
+if [ "$DRY_RUN" != 1 ]; then
+  umount -R "$MNT" 2>/dev/null || true
+  rmdir "$MNT" 2>/dev/null || true
+fi
+
+say ""
+hr
+say "  $(c_grn '✅ Installation complete.')"
+say ""
+say "  • Installed to:  $DEV"
+say "  • The system boots straight to the dashboard as user '$INSTALL_USER'"
+say "    (no login, no password). Add a password later if you want one."
+say ""
+say "  Next: shut down, remove the install media, and power on."
+hr

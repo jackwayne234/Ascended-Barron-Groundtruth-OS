@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -u
+# Ascended Barron: GroundTruth OS — GUI dashboard launcher.
+#
+# Runs inside the logged-in user's X session (started by ~/.xinitrc). It makes
+# NO assumption of root: HOME and the runtime dir are taken from the live
+# session, all caches/logs live under the user's home, and there are no
+# machine- or person-specific values baked in.
+export AI_OS_VM=1
+export AI_OS_FULLSCREEN=1
+
+# Derive the session paths instead of hardcoding /root.
+: "${HOME:=$(getent passwd "$(id -u)" | cut -d: -f6)}"
+: "${XDG_RUNTIME_DIR:=/run/user/$(id -u)}"
+
+LOG_DIR="$HOME/.local/share/ai-os/logs"
+mkdir -p "$HOME/.cache" "$LOG_DIR" "$XDG_RUNTIME_DIR" 2>/dev/null || true
+chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null || true
+export XDG_CACHE_HOME="$HOME/.cache"
+export BROWSER=/usr/local/bin/ai-os-browser
+export XCURSOR_SIZE=48
+
+# Audio is best-effort; the dashboard works fine without it.
+pgrep -x pipewire        >/dev/null 2>&1 || pipewire        >>"$LOG_DIR/pipewire.log"        2>&1 &
+pgrep -x wireplumber     >/dev/null 2>&1 || wireplumber     >>"$LOG_DIR/wireplumber.log"     2>&1 &
+pgrep -x pipewire-pulse  >/dev/null 2>&1 || pipewire-pulse  >>"$LOG_DIR/pipewire-pulse.log"  2>&1 &
+
+# A minimal window manager so windows are movable; harmless if openbox is absent.
+xsetroot -cursor_name left_ptr 2>/dev/null || true
+openbox >>"$LOG_DIR/openbox.log" 2>&1 &
+sleep 1
+
+exec python3 /usr/local/share/ai-os/ai-os-dashboard.py >>"$LOG_DIR/dashboard.log" 2>&1

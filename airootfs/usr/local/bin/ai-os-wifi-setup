@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -u
+clear
+echo "Ascended Barron - WiFi Setup"
+echo "============================"
+echo
+say(){ printf %sn ""; }
+say "Starting NetworkManager and SSH..."
+systemctl start NetworkManager 2>/dev/null || true
+systemctl start sshd 2>/dev/null || true
+sleep 1
+echo
+echo "Current network devices:"
+nmcli -t -f DEVICE,TYPE,STATE,CONNECTION dev status 2>/dev/null || ip -br link
+echo
+echo "Current laptop address:"
+ip -4 -br addr show scope global || true
+echo
+if nmcli -t -f TYPE,STATE dev 2>/dev/null | grep -q ^wifi:connected; then
+  say "PASS: WiFi is connected."
+elif ip -4 route show default >/dev/null 2>&1 && ip -4 route show default | grep -q .; then
+  say "PASS: Network route exists. The laptop appears connected."
+else
+  say "WiFi is not connected yet. Opening menu."
+  say "Choose: Activate a connection -> your WiFi -> enter password."
+  sleep 1
+  if command -v nmtui >/dev/null 2>&1; then
+    nmtui-connect || nmtui
+  else
+    nmcli dev wifi list 2>/dev/null || true
+  fi
+fi
+echo
+echo "After WiFi connects, you are ready to use the dashboard."
+echo
+read -rp "Press Enter to close..." _

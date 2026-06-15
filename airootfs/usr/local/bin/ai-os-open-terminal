@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+clear
+echo "AI OS Terminal"
+echo "=============="
+echo
+echo "Plain terminal ready."
+echo "Use the Apps buttons to set up WiFi and check your internet connection."
+echo
+exec bash

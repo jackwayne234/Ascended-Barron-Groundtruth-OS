@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+echo "AI OS dashboard image booted."
+echo "Boundary: VM-only, no USB writer."
+echo "Dashboard: GUI autostarts on tty1; terminal fallback: ai-os-terminal-dashboard."

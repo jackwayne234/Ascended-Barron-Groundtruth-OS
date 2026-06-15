@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Open the bundled Chromium. We run as a normal (non-root) user, so Chromium's
+# sandbox works and is left ENABLED. --disable-gpu is kept because the VM-first
+# target (virtio-vga) has no GL; it is harmless on real GPUs if a little slower.
+exec chromium --no-first-run --disable-gpu "$@"

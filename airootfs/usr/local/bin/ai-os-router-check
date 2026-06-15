@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -u
+clear
+echo "AI OS - 2 Router Check"
+echo "======================"
+echo
+systemctl start NetworkManager 2>/dev/null || true
+systemctl start iwd 2>/dev/null || true
+sleep 1
+
+echo "Laptop address:"
+ip -4 -br addr show scope global || true
+
+gw="$(ip -4 route show default 2>/dev/null | awk 'NR==1{print $3}')"
+echo
+if [ -z "$gw" ]; then
+  echo "FAIL: No router/default gateway found yet."
+  echo "Click 1 WiFi Setup first, then run this again."
+else
+  echo "Router address: $gw"
+  if ping -c 2 -W 2 "$gw" >/dev/null 2>&1; then
+    echo "PASS: Laptop can reach the router."
+  else
+    echo "FAIL: Laptop has a router address but cannot reach it yet."
+    echo "Trying to refresh DHCP..."
+    nmcli networking off 2>/dev/null || true
+    sleep 2
+    nmcli networking on 2>/dev/null || true
+    sleep 4
+    ping -c 2 -W 2 "$gw" && echo "PASS after refresh." || echo "Still not reaching router."
+  fi
+fi
+
+echo
+echo "If this passed, click: 3 Internet Check"
+echo
+read -rp "Press Enter to close..." _

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Terminal fallback: run the real dashboard without the GUI autostart wrapper.
+export AI_OS_VM=1
+exec python3 /usr/local/share/ai-os/ai-os-dashboard.py "$@"

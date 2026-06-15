@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-06-14T00:00:00+00:00",
+  "tasks": [
+    {
+      "id": "sample-webpage-0002",
+      "title": "Build a simple personal webpage",
+      "quadrant": "schedule",
+      "completed": false,
+      "created_at": "2026-06-14T00:00:00+00:00",
+      "updated_at": "2026-06-14T00:00:00+00:00",
+      "completed_at": null
+    },
+    {
+      "id": "sample-dashfeature-0003",
+      "title": "Add a feature to my dashboard",
+      "quadrant": "schedule",
+      "completed": false,
+      "created_at": "2026-06-14T00:00:00+00:00",
+      "updated_at": "2026-06-14T00:00:00+00:00",
+      "completed_at": null
+    },
+    {
+      "id": "sample-weekend-0001",
+      "title": "Plan a 3-day weekend trip",
+      "quadrant": "schedule",
+      "completed": true,
+      "created_at": "2026-06-14T00:00:00+00:00",
+      "updated_at": "2026-06-14T00:00:00+00:00",
+      "completed_at": "2026-06-14T00:00:00+00:00"
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+# Ascended Barron: GroundTruth OS — package list (x86_64).
+#
+# This is a complete, readable list of what the live system needs. At build
+# time it is unioned with archiso releng's packages.x86_64 as a safety net so
+# no live-boot essential is accidentally dropped (see BUILD.md). One package
+# per line; comments and blank lines are ignored by mkarchiso.
+
+## --- base system + kernel ---
+base
+linux
+linux-firmware
+intel-ucode
+amd-ucode
+mkinitcpio
+mkinitcpio-archiso
+
+## --- live-boot + install tooling ---
+syslinux
+grub
+efibootmgr
+edk2-shell
+memtest86+
+memtest86+-efi
+arch-install-scripts
+squashfs-tools
+libisoburn
+dosfstools
+e2fsprogs
+exfatprogs
+ntfs-3g
+f2fs-tools
+gptfdisk
+parted
+
+## --- networking (Wi-Fi/ethernet via NetworkManager) ---
+networkmanager
+wpa_supplicant
+iwd
+dhcpcd
+nano
+vim
+less
+man-db
+bash-completion
+
+## --- privilege + sessions ---
+sudo
+polkit
+
+## --- hardware/firmware breadth (real machines, not just the VM) ---
+mesa
+xf86-video-vesa
+xf86-video-amdgpu
+xf86-video-intel
+xf86-video-nouveau
+virtualbox-guest-utils-nox
+
+## --- X + minimal desktop shell ---
+xorg-server
+xorg-xinit
+xorg-xrandr
+xorg-xsetroot
+xterm
+openbox
+
+## --- the GroundTruth OS dashboard + workflow ---
+python
+tk
+git
+
+## --- bundled apps (keep-list, Q1) ---
+chromium
+lxterminal
+
+## --- audio (best-effort; dashboard works without it) ---
+pipewire
+wireplumber
+pipewire-pulse
+pipewire-audio
+
+## --- fonts ---
+ttf-dejavu
+noto-fonts
+terminus-font
