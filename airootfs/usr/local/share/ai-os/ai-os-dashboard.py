@@ -827,8 +827,10 @@ class Dashboard:
                                      font=(FONT, 10, "bold"), cursor="hand2")
         self.biglog_label.pack(side="right", padx=(12, 12))
         self.biglog_label.bind("<Button-1>", self._biglog_test_now)
-        tk.Label(row, textvariable=self.clock, bg=HEAD, fg=MUTED,
-                 font=(FONT, 11)).pack(side="right")
+        self.clock_label = tk.Label(row, textvariable=self.clock, bg=HEAD, fg=MUTED,
+                                    font=(FONT, 11), cursor="hand2")
+        self.clock_label.pack(side="right")
+        self.clock_label.bind("<Button-1>", self._pick_timezone)  # click clock -> set timezone
         self._tick()
         self._biglog_refresh()
 
@@ -1165,6 +1167,64 @@ class Dashboard:
             self.battery.set(format_battery_indicator(cap, status))
         # Minute-level clock/battery updates are enough and reduce dashboard churn.
         self.root.after(5000, self._tick)
+
+    def _pick_timezone(self, _e=None):
+        """Click the clock to choose a timezone (the OS ships as UTC). Sets it
+        with timedatectl via passwordless sudo; the clock updates next tick.
+        On the live USB this resets each boot; on an installed system it sticks."""
+        try:
+            zones = subprocess.check_output(["timedatectl", "list-timezones"], text=True).split()
+        except Exception as e:
+            messagebox.showerror("Timezone", f"Couldn't list timezones:\n\n{e}", parent=self.root)
+            return
+        try:
+            current = subprocess.check_output(
+                ["timedatectl", "show", "-p", "Timezone", "--value"], text=True).strip()
+        except Exception:
+            current = ""
+        win = tk.Toplevel(self.root); win.title("Choose timezone"); win.configure(bg=HEAD)
+        tk.Label(win, text="Pick your timezone", bg=HEAD, fg=INK,
+                 font=(FONT, 14, "bold")).pack(padx=16, pady=(14, 2))
+        tk.Label(win, text=f"Current: {current or 'unknown'}   ·   type to filter (e.g. New_York)",
+                 bg=HEAD, fg=MUTED, font=(FONT, 10)).pack(padx=16, pady=(0, 6))
+        fvar = tk.StringVar()
+        ent = tk.Entry(win, textvariable=fvar, bg="#0b1a2e", fg=INK, insertbackground=INK,
+                       font=(FONT, 11), relief="flat")
+        ent.pack(fill="x", padx=16, pady=4); ent.focus_set()
+        lb = tk.Listbox(win, bg="#0b1a2e", fg=INK, font=(FONT, 10), height=15,
+                        selectbackground=ACCENT, activestyle="none", highlightthickness=0)
+        lb.pack(fill="both", expand=True, padx=16, pady=6)
+        def refill(*_):
+            f = fvar.get().strip().lower().replace(" ", "_")
+            lb.delete(0, "end")
+            for z in zones:
+                if f in z.lower():
+                    lb.insert("end", z)
+            if current in lb.get(0, "end"):
+                idx = list(lb.get(0, "end")).index(current); lb.selection_set(idx); lb.see(idx)
+        refill(); fvar.trace_add("write", refill)
+        def apply(_e=None):
+            sel = lb.curselection()
+            tz = lb.get(sel[0]) if sel else fvar.get().strip()
+            if tz not in zones:
+                messagebox.showinfo("Timezone", "Pick a timezone from the list.", parent=win); return
+            try:
+                subprocess.run(["sudo", "timedatectl", "set-timezone", tz], check=True)
+                log_event("timezone_set", f"user set timezone to {tz}", kind="user")
+                self.clock.set(datetime.datetime.now().strftime("%A %d %B %Y  ·  %I:%M %p"))
+                self._flash(f"Timezone set to {tz}")
+                win.destroy()
+            except Exception as e:
+                messagebox.showerror("Timezone", f"Couldn't set timezone:\n\n{e}", parent=win)
+        lb.bind("<Double-Button-1>", apply); ent.bind("<Return>", apply)
+        btns = tk.Frame(win, bg=HEAD); btns.pack(fill="x", padx=16, pady=12)
+        tk.Button(btns, text="Set timezone", command=apply, bg=ACCENT2, fg=INK,
+                  font=(FONT, 10, "bold"), relief="raised", bd=2, padx=10, pady=4,
+                  cursor="hand2").pack(side="left")
+        tk.Button(btns, text="✕ Close", command=win.destroy, bg="#13233c", fg=BODY,
+                  font=(FONT, 10, "bold"), relief="raised", bd=2, padx=10, pady=4,
+                  cursor="hand2").pack(side="right")
+        win.geometry("440x560")
 
     def _toggle_fs(self, _e=None):
         self.root.attributes("-fullscreen", not self.root.attributes("-fullscreen"))
