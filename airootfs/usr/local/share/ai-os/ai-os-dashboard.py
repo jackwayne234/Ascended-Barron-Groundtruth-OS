@@ -1192,8 +1192,8 @@ class Dashboard:
             self.volume_scale.bind("<ButtonPress-1>", self._volume_capture_focus)
             self.volume_scale.bind("<ButtonRelease-1>", self._volume_restore_focus)
         # No AI setup button: use the terminal for normal commands.
-        # Settings goes in the bottom-right corner alongside the machine controls
-        # (Install / Restart / Power Off). Packed first → ends up rightmost.
+        # Machine controls live in the bottom-right corner. Settings is packed
+        # first so it lands rightmost; destructive/power actions stay grouped.
         tk.Button(footer, text="⚙ Settings",
                   command=self.open_settings,
                   bg="#1e3a5f", fg=INK, activebackground="#2563eb", activeforeground=INK,
@@ -1209,10 +1209,14 @@ class Dashboard:
                   bg="#92400e", fg=INK, activebackground="#b45309", activeforeground=INK,
                   relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
                   cursor="hand2").pack(side="right", padx=4, pady=4)
-        # Install-to-disk button removed: the laptop is now an installed system,
-        # not a live environment that needs the installer surfaced in the UI.
-        # The ai-os-install-to-disk script is still on the system if it's ever
-        # needed; the dashboard no longer offers it.
+        tk.Button(footer, text="Install to disk",
+                  command=self._install_to_disk,
+                  bg="#4a1d1d", fg=INK, activebackground="#7f1d1d", activeforeground=INK,
+                  relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
+                  cursor="hand2").pack(side="right", padx=4, pady=4)
+        # This launcher is intentionally visible but guarded: it opens a warning
+        # prompt first, then the terminal installer still requires exact disk
+        # selection and typing ERASE before touching anything.
 
     def _wifi_tick(self):
         text, color = wifi_indicator()

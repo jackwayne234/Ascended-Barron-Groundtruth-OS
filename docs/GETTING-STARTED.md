@@ -124,18 +124,14 @@ No AI is bundled — you choose. In the project terminal:
 
 ## 8. Keep it: install to disk (advanced)
 
-The live USB is the safest way to try GroundTruth OS. In the current build the
-disk installer is still included, but the dashboard no longer presents it as a
-casual button.
+The live USB is the safest way to try GroundTruth OS. The dashboard includes a
+guarded **Install to disk** button for when you intentionally want to keep it.
 
 Installing to disk is advanced and destructive: it erases the whole target disk.
 Only do it on a spare machine after backing up anything important.
 
-If you intentionally want to install it, open a terminal and run:
-
-```sh
-sudo ai-os-install-to-disk
-```
+If you intentionally want to install it, click **Install to disk** in the
+dashboard footer. You can also run `sudo ai-os-install-to-disk` from a terminal.
 
 The installer lists your disks, refuses the USB you booted from and any disk
 currently in use, then asks you to type the exact target disk name and `ERASE`

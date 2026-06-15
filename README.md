@@ -65,10 +65,9 @@ planning, decisions, steps, and progress.
 2. **Verify** it with the published `SHA256SUMS` (see the
    [Getting Started guide](docs/GETTING-STARTED.md)).
 3. **Flash** it to a USB stick (Rufus, balenaEtcher, or `dd`).
-4. **Boot** it — it comes up live so you can try it instantly. In the current
-   build the disk installer is still included, but the dashboard no longer
-   surfaces it as a casual button; treat install-to-disk as an advanced,
-   destructive action.
+4. **Boot** it — it comes up live so you can try it instantly. To keep it, use
+   the guarded **Install to disk** button. Treat install-to-disk as advanced and
+   destructive: it erases the target disk after multiple confirmations.
 
 Full step-by-step instructions (including BIOS/boot keys and Secure Boot) are in
 the **[Getting Started guide](docs/GETTING-STARTED.md)**.
