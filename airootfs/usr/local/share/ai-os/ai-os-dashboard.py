@@ -1190,11 +1190,18 @@ class Dashboard:
             self.volume_scale.bind("<ButtonPress-1>", self._volume_capture_focus)
             self.volume_scale.bind("<ButtonRelease-1>", self._volume_restore_focus)
         # No AI setup button: use the terminal for normal commands.
+        # Settings goes in the bottom-right corner alongside the machine controls
+        # (Install / Restart / Power Off). Packed first → ends up rightmost.
+        tk.Button(footer, text="⚙ Settings",
+                  command=self.open_settings,
+                  bg="#1e3a5f", fg=INK, activebackground="#2563eb", activeforeground=INK,
+                  relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
+                  cursor="hand2").pack(side="right", padx=(4, 6), pady=4)
         tk.Button(footer, text="⏻ Power Off",
                   command=lambda: self._power("poweroff", "Power Off"),
                   bg="#7f1d1d", fg=INK, activebackground="#b91c1c", activeforeground=INK,
                   relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
-                  cursor="hand2").pack(side="right", padx=(4, 16), pady=4)
+                  cursor="hand2").pack(side="right", padx=4, pady=4)
         tk.Button(footer, text="⟳ Restart",
                   command=lambda: self._power("reboot", "Restart"),
                   bg="#92400e", fg=INK, activebackground="#b45309", activeforeground=INK,
@@ -1636,7 +1643,6 @@ class Dashboard:
         return [
             ("open_terminal", "Open Terminal", self.open_plain_terminal, False),
             ("todo_list", "To-Do List", self.open_eisenhower, False),
-            ("settings", "Settings", self.open_settings, True),
         ]
 
     def _builtin_by_key(self):
