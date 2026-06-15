@@ -1621,7 +1621,7 @@ class Dashboard:
             bar = tk.Frame(host, bg=HEAD)
             tk.Button(bar, text="＋ Create App",
                       command=lambda: self._app_build_new(None),
-                      bg=GOOD, fg=INK, activebackground=ACCENT, activeforeground=INK,
+                      bg="#13233c", fg=INK, activebackground=ACCENT, activeforeground=INK,
                       font=(FONT, 9, "bold"), relief="raised", bd=1,
                       padx=8, pady=2, cursor="hand2").pack(side="left", padx=(0, 4))
             tk.Button(bar, text="Archive Apps",
