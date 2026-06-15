@@ -84,7 +84,6 @@ DASH_DIR = pathlib.Path(__file__).resolve().parent
 UPDATE_REPO = "https://github.com/jackwayne234/Ascended-Barron-Groundtruth-OS.git"
 INSTALLED_REV_FILE = DASH_DIR / "INSTALLED_REV"          # full commit SHA
 INSTALLED_VERSION_FILE = DASH_DIR / "INSTALLED_VERSION"  # release tag, e.g. v1.1.0 (Q54)
-CHANGELOG_FILE = DASH_DIR / "CHANGELOG.md"               # bundled "what's new" source (Q31)
 # User settings (update-check opt-out, banner-dismiss state, …) live here — user
 # data the updater never touches (Q29).
 CONFIG_DIR = HOME / ".config" / "ai-os"
@@ -894,30 +893,6 @@ def latest_remote_release():
     return best[1] if best else None
 
 
-def changelog_section(version=None):
-    """Return the bundled CHANGELOG text for `version` (default: the installed
-    one), or the whole file if the section can't be isolated (Q31)."""
-    try:
-        text = CHANGELOG_FILE.read_text(encoding="utf-8")
-    except Exception:
-        return ""
-    ver = version or installed_version_str()
-    lines = text.splitlines()
-    start = None
-    for i, ln in enumerate(lines):
-        if ln.startswith("## ") and ver and ver in ln:
-            start = i
-            break
-    if start is None:
-        return text.strip()
-    end = len(lines)
-    for j in range(start + 1, len(lines)):
-        if lines[j].startswith("## "):
-            end = j
-            break
-    return "\n".join(lines[start:end]).strip()
-
-
 def has_update_backup():
     """True if ai-os-update has a backup to undo (Q57 greys the button otherwise)."""
     try:
@@ -1031,8 +1006,6 @@ class Dashboard:
         self.update_available = False
         self.latest_version = None
         self.root.after(3000, self._schedule_update_check)
-        # If we just updated, show "what's new" once (Q31/Q45).
-        self.root.after(1200, self._maybe_show_whats_new)
 
     # ---- self-update: is a newer version available? ----
     def _schedule_update_check(self):
@@ -1065,7 +1038,7 @@ class Dashboard:
                 self._draw_app_tiles()
             self._refresh_update_banner()
 
-    # ---- self-update: banner, what's-new, settings (Q17/Q31/Q43/Q56) ----
+    # ---- self-update: banner, settings (Q17/Q43/Q56) ----
     def _refresh_update_banner(self):
         """Show/hide the thin 'update available' banner. Dismiss hides it for the
         current version; it returns only when a newer version appears (Q17/Q33)."""
@@ -1096,37 +1069,6 @@ class Dashboard:
         if latest:
             set_setting("banner_dismissed_version", latest)
         self._refresh_update_banner()
-
-    def _maybe_show_whats_new(self):
-        """After updating, show 'what's new' once for the new version (Q31/Q45)."""
-        cur = installed_version_str()
-        if parse_version(cur) is None:
-            return  # dev/unknown build — nothing to announce
-        if get_setting("whatsnew_shown_version", "") == cur:
-            return
-        set_setting("whatsnew_shown_version", cur)
-        body = changelog_section(cur)
-        if body:
-            self._show_whats_new(cur, body)
-
-    def _show_whats_new(self, version=None, body=None):
-        version = version or installed_version_str()
-        if body is None:
-            body = changelog_section(version) or "No changelog is available for this version."
-        win = tk.Toplevel(self.root)
-        win.title(f"What's new — {version}")
-        win.configure(bg=PANEL, padx=18, pady=18)
-        tk.Label(win, text=f"What's new in {version}", bg=PANEL, fg=INK,
-                 font=(FONT, 14, "bold")).pack(anchor="w")
-        txt = tk.Text(win, bg="#0b1626", fg=BODY, font=(FONT, 11), relief="flat",
-                      wrap="word", width=72, height=18, highlightthickness=0, padx=10, pady=10)
-        txt.insert("1.0", body)
-        txt.configure(state="disabled")
-        txt.pack(fill="both", expand=True, pady=10)
-        tk.Button(win, text="✕ Close", command=win.destroy, bg="#13233c", fg=INK,
-                  font=(FONT, 11, "bold"), relief="raised", bd=2, padx=10, pady=6,
-                  cursor="hand2").pack(side="right")
-        self._popup_prep(win)
 
     def _check_updates_now(self):
         """Manual 'Check for updates now' (Q56) — same check, on demand."""
@@ -1186,7 +1128,6 @@ class Dashboard:
         row.pack(anchor="w", pady=(10, 2))
         btn(row, "Check for updates now", self._check_updates_now).pack(side="left", padx=(0, 6))
         btn(row, "Update OS", lambda: self.open_setup_script("Update OS", "/usr/local/bin/ai-os-update"), ACCENT).pack(side="left", padx=6)
-        btn(row, "What's new", self._show_whats_new).pack(side="left", padx=6)
 
         row2 = tk.Frame(wrap, bg=PANEL)
         row2.pack(anchor="w", pady=(8, 2))
@@ -1258,14 +1199,6 @@ class Dashboard:
                       bg="#155e75", fg=INK, activebackground="#0e7490", activeforeground=INK,
                       relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
                       cursor="hand2").pack(side="right", padx=4, pady=4)
-        # System Update (pacman) — separate, heavier action; only shown on the
-        # real OS where the helper exists, so there's never a dead button (Q11/Q46).
-        if shutil.which("ai-os-system-update") or os.path.exists("/usr/local/bin/ai-os-system-update"):
-            tk.Button(footer, text="⟳ System Update",
-                      command=lambda: self.open_setup_script("System Update", "/usr/local/bin/ai-os-system-update"),
-                      bg="#3f3f46", fg=INK, activebackground="#52525b", activeforeground=INK,
-                      relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
-                      cursor="hand2").pack(side="right", padx=4, pady=4)
 
     def _wifi_tick(self):
         text, color = wifi_indicator()
@@ -1273,14 +1206,6 @@ class Dashboard:
             self.wifi_status.set(text)
         if hasattr(self, "wifi_label"):
             self.wifi_label.configure(fg=color)
-        # Re-check for updates when connectivity returns (Q9/Q34): a fresh boot is
-        # often still offline at the initial 3s check. Fire only on a real
-        # offline->online transition, and not if we already know one's available.
-        online = not text.startswith(("No Wi-Fi", "No network", "Wi-Fi …"))
-        prev = getattr(self, "_wifi_was_online", None)
-        if online and prev is False and not getattr(self, "update_available", False):
-            threading.Thread(target=self._update_check_worker, daemon=True).start()
-        self._wifi_was_online = online
         self.root.after(6000, self._wifi_tick)
 
     def _resource_tick(self):
@@ -1993,7 +1918,7 @@ class Dashboard:
                 pass
 
         def refocus():
-            # Terminals (Run System Update etc.) need KEYBOARD focus, which
+            # Terminals (Update OS etc.) need KEYBOARD focus, which
             # stays on the Tk window after reparenting — typing went nowhere.
             # Hand X input focus to the embedded app, but ONLY while the
             # dashboard itself really holds the keyboard. CAUTION (2026-06-06):
