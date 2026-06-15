@@ -86,6 +86,23 @@ the **[Getting Started guide](docs/GETTING-STARTED.md)**.
 Boots on **UEFI** (x64 + ia32) and **legacy BIOS**. **Secure Boot is not supported
 in v1** — turn it off in your firmware if it's on.
 
+## Updating
+
+On **v1.0.2 or newer**, updating is one click: open **Update OS** in the
+dashboard's Apps grid. It pulls the latest release from this repo, backs up the
+current files first, and replaces only the OS's own app files — your projects and
+data in `~/workspace` are never touched. The tile turns **amber** when a newer
+version is available.
+
+On **v1.0.0 / v1.0.1** (which predate the Update button), add the updater once and
+the button takes over from then on:
+
+```
+git clone --depth 1 https://github.com/jackwayne234/Ascended-Barron-Groundtruth-OS.git /tmp/abgt \
+  && sudo install -m755 /tmp/abgt/groundtruth-os/airootfs/usr/local/bin/ai-os-update /usr/local/bin/ \
+  && ai-os-update
+```
+
 ## Security model — please read
 
 This is a **single-user, open** system by design:
@@ -109,6 +126,12 @@ policies, exactly as they always do. That's separate from GroundTruth OS and
 outside our control. Want zero third-party logging? **Use a local model** — then
 the whole loop is fully in-house: the model runs locally, the logs write locally,
 and nothing leaves your machine.
+
+For full transparency, the OS itself makes **one** small outbound request: on
+startup it asks this GitHub repo "what's the latest version?" so the **Update OS**
+tile can tell you when an update exists. It's a version check only — it sends
+none of your data. (And of course, downloading an update contacts GitHub too,
+when you click Update.)
 
 ## Build it yourself
 
