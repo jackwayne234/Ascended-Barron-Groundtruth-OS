@@ -1585,15 +1585,44 @@ class Dashboard:
         win.lift()
         win.focus_set()
 
-    def _box(self, parent, title):
+    def _box(self, parent, title, header_right=None):
+        """A titled panel: the 'title' label on the left of the header strip,
+        and an optional caller-built widget on the right (e.g. quick-action
+        buttons). header_right, if given, is called with the header Frame and
+        should return a child widget to pack(side="right") into it."""
         box = tk.Frame(parent, bg=PANEL, highlightbackground="#1e3a5f", highlightthickness=1)
-        tk.Label(box, text=title, bg=HEAD, fg=INK, font=(FONT, 12, "bold"),
-                 pady=6, padx=10, anchor="w").pack(fill="x")
+        header = tk.Frame(box, bg=HEAD)
+        header.pack(fill="x")
+        tk.Label(header, text=title, bg=HEAD, fg=INK, font=(FONT, 12, "bold"),
+                 pady=6, padx=10, anchor="w").pack(side="left")
+        if header_right is not None:
+            try:
+                widget = header_right(header)
+                if widget is not None:
+                    widget.pack(side="right", padx=8, pady=4)
+            except Exception:
+                pass
         return box
 
     # ---- sidebar: app tiles ----
     def _build_app_grid(self, parent):
-        box = self._box(parent, "Apps")
+        # Top-of-panel quick actions: Create App + Archive Apps, sitting right
+        # of the "Apps" label. The Archive Apps tile that used to live in the
+        # grid is removed (now redundant with the header button).
+        def _apps_header_right(host):
+            bar = tk.Frame(host, bg=HEAD)
+            tk.Button(bar, text="＋ Create App",
+                      command=lambda: self._app_build_new(None),
+                      bg=GOOD, fg=INK, activebackground=ACCENT, activeforeground=INK,
+                      font=(FONT, 9, "bold"), relief="raised", bd=1,
+                      padx=8, pady=2, cursor="hand2").pack(side="left", padx=(0, 4))
+            tk.Button(bar, text="Archive Apps",
+                      command=self._archive_apps_dialog,
+                      bg="#13233c", fg=INK, activebackground=ACCENT, activeforeground=INK,
+                      font=(FONT, 9, "bold"), relief="raised", bd=1,
+                      padx=8, pady=2, cursor="hand2").pack(side="left")
+            return bar
+        box = self._box(parent, "Apps", header_right=_apps_header_right)
         # Takes the whole sidebar below the to-do list (the weather moved to a
         # bottom ticker) — room for many more app squares.
         box.pack(fill="both", expand=True, pady=(0, 10))
@@ -1686,7 +1715,8 @@ class Dashboard:
         builtins = [(key, name, cmd, archiveable)
                     for key, name, cmd, archiveable in self._builtin_apps()
                     if key not in archived]
-        builtins.append(("archive_apps", "Archive Apps", self._archive_apps_dialog, False))
+        # (Archive Apps used to be a tile here; now it's a top-of-panel button
+        # next to the "Apps" label — see _build_app_grid header_right.)
         for i, (key, name, cmd, archiveable) in enumerate(builtins):
             tile_bg = "#13233c"
             tile_name = name
