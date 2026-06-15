@@ -567,17 +567,10 @@ def wifi_indicator():
     rows = [l.split(":") for l in out.splitlines() if l]
     wifi = next((r for r in rows if r and r[0] == "wifi"), None)
     if wifi and len(wifi) >= 2 and wifi[1] == "connected":
-        ssid = wifi[2] if len(wifi) > 2 and wifi[2] else "Wi-Fi"
-        bars = ""
-        try:
-            w = subprocess.check_output(["nmcli", "-t", "-f", "IN-USE,SIGNAL", "dev", "wifi"],
-                                        text=True, timeout=4, stderr=subprocess.DEVNULL)
-            for l in w.splitlines():
-                if l.startswith("*"):
-                    s = int(l.split(":")[1]); bars = " " + "▂▄▆█"[:max(1, min(4, s // 25 + 1))]; break
-        except Exception:
-            pass
-        return (f"📶 {ssid}{bars}", GOOD)
+        # No signal bars: they changed width every poll and jittered the header.
+        # Just a steady "connected" icon + the network name.
+        ssid = (wifi[2] if len(wifi) > 2 and wifi[2] else "Wi-Fi")[:14]
+        return (f"📶 {ssid}", GOOD)
     eth = next((r for r in rows if r and r[0] == "ethernet"), None)
     if eth and len(eth) >= 2 and eth[1] == "connected":
         return ("🔌 Wired", GOOD)
@@ -853,8 +846,9 @@ class Dashboard:
         tk.Label(row, textvariable=self.battery, bg=HEAD, fg=GOOD,
                  font=(FONT, 10, "bold")).pack(side="right", padx=(12, 0))
         self.wifi_status = tk.StringVar(value="📶 …")
+        # Fixed width + right-anchor so status changes never shift the header.
         self.wifi_label = tk.Label(row, textvariable=self.wifi_status, bg=HEAD, fg=MUTED,
-                                   font=(FONT, 10, "bold"), cursor="hand2")
+                                   font=(FONT, 10, "bold"), cursor="hand2", width=16, anchor="e")
         self.wifi_label.pack(side="right", padx=(12, 0))
         self.wifi_label.bind("<Button-1>",
                              lambda e: self.open_setup_script("WiFi Setup", "/usr/local/bin/ai-os-wifi-setup"))
