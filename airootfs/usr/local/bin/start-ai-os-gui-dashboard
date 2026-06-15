@@ -30,4 +30,15 @@ xsetroot -cursor_name left_ptr 2>/dev/null || true
 openbox >>"$LOG_DIR/openbox.log" 2>&1 &
 sleep 1
 
-exec python3 /usr/local/share/ai-os/ai-os-dashboard.py >>"$LOG_DIR/dashboard.log" 2>&1
+# Run the dashboard in a relaunch loop. After an in-place update (or rollback),
+# ai-os-update drops a restart sentinel and kills the dashboard; we then relaunch
+# it directly in the SAME X session — no full teardown, no black-screen risk
+# (Q7). Any other exit (Ctrl+Q, poweroff) leaves no sentinel, so the session
+# ends normally and getty re-runs startx as before.
+RESTART_SENTINEL="$HOME/.cache/ai-os/restart-dashboard"
+mkdir -p "$(dirname "$RESTART_SENTINEL")" 2>/dev/null || true
+while :; do
+  rm -f "$RESTART_SENTINEL" 2>/dev/null || true
+  python3 /usr/local/share/ai-os/ai-os-dashboard.py >>"$LOG_DIR/dashboard.log" 2>&1
+  [ -f "$RESTART_SENTINEL" ] || break
+done

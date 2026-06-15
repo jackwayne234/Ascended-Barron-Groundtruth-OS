@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# ai-os-system-update — update the underlying Arch system packages.
+#
+# This is SEPARATE from "Update OS" (which updates the dashboard + ai-os apps).
+# It refreshes the whole base system: kernel, browser, drivers, security fixes.
+# On Arch the only safe upgrade is a FULL one (never a partial upgrade), so this
+# refreshes the keyring first and then runs a complete `pacman -Syu`. (Q11/Q32)
+set -uo pipefail
+
+say(){ printf '%s\n' "$*"; }
+
+clear 2>/dev/null || true
+say "Ascended Barron: GroundTruth OS — System Update"
+say "==============================================="
+say ""
+say "This updates the underlying Linux system packages (kernel, browser,"
+say "drivers, security fixes) — not your apps or your work."
+say ""
+say "⚠ It can download a lot and take a while. When it finishes, a RESTART is"
+say "  recommended so a new kernel/driver actually takes effect."
+say ""
+say "Your projects and data in ~/workspace are not affected."
+say ""
+read -rp "Type 'yes' to start the system update: " ans
+[ "$ans" = "yes" ] || { say "Cancelled — nothing was changed."; exit 0; }
+
+command -v pacman >/dev/null 2>&1 || { say ""; say "✗ pacman not found — this isn't a running Arch system."; read -rp "Press Enter to close..." _; exit 1; }
+
+say ""
+say "Step 1/2 — refreshing the package-signing keyring..."
+# A long-unused install can have a stale keyring that makes -Syu fail; refresh
+# it first so the full upgrade can verify package signatures.
+sudo pacman -Sy --needed --noconfirm archlinux-keyring || {
+  say ""; say "✗ Couldn't refresh the keyring. Check your internet connection and try again."
+  read -rp "Press Enter to close..." _; exit 1; }
+
+say ""
+say "Step 2/2 — upgrading all system packages (pacman -Syu)..."
+if sudo pacman -Syu; then
+  say ""
+  say "✓ System update complete."
+  say "  A restart is recommended (use Restart in the bottom bar)."
+else
+  say ""
+  say "✗ The system update didn't finish cleanly. Nothing else was changed by this tool."
+  say "  You can re-run System Update, or open a terminal to inspect pacman's output."
+fi
+say ""
+read -rp "Press Enter to close..." _

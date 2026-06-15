@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# ai-os-rollback — undo the last OS update (Ascended Barron: GroundTruth OS).
+#
+# Restores the most recent backup that ai-os-update saved before it applied an
+# update, and resets the version marker to what it was. It only ever restores
+# the OS's own app files under /usr/local — it never touches your projects,
+# data, or settings in ~/workspace. (Q4/Q41/Q57)
+set -uo pipefail
+
+BACKUP_ROOT="$HOME/.local/share/ai-os/update-backups"
+HISTORY="$HOME/.local/share/ai-os/update-history.jsonl"
+DASH_DIR="/usr/local/share/ai-os"
+RESTART_SENTINEL="$HOME/.cache/ai-os/restart-dashboard"
+MANAGED_SHARE="/usr/local/share/ai-os"
+MANAGED_LIB="/usr/local/lib/ai-os"
+
+say(){ printf '%s\n' "$*"; }
+die(){ say ""; say "✗ $*"; say ""; read -rp "Press Enter to close..." _; exit 1; }
+
+clear 2>/dev/null || true
+say "Ascended Barron: GroundTruth OS — Undo Last Update"
+say "================================================="
+say ""
+
+# Most recent backup directory (timestamp-named, so lexical sort = chronological).
+LATEST="$(ls -1d "$BACKUP_ROOT"/*/ 2>/dev/null | sort | tail -n1)"
+[ -n "$LATEST" ] && [ -d "$LATEST" ] || die "There's no update backup to roll back to."
+LATEST="${LATEST%/}"
+
+FROM_VER="$(cat "$LATEST/.from_version" 2>/dev/null | tr -d '[:space:]')"
+FROM_REV="$(cat "$LATEST/.from_rev" 2>/dev/null | tr -d '[:space:]')"
+say "Found a backup from: $(basename "$LATEST")"
+[ -n "$FROM_VER" ] && say "It will restore version: $FROM_VER"
+say ""
+say "This puts the OS app files back to that backup. Your work in ~/workspace is"
+say "not affected."
+say ""
+read -rp "Type 'yes' to undo the last update: " ans
+[ "$ans" = "yes" ] || { say "Cancelled — nothing was changed."; exit 0; }
+
+restore_tree(){  # $1 = backup subdir (e.g. .../usr/local/share/ai-os), $2 = system dir
+  [ -d "$1" ] || return 0
+  sudo rm -rf "$2"                                 || return 1
+  sudo mkdir -p "$(dirname "$2")"                  || return 1
+  sudo cp -a "$1" "$2"                             || return 1
+  sudo chown -R root:root "$2"                     || return 1
+  sudo chmod -R u=rwX,go=rX "$2"                   || return 1
+}
+
+say ""
+say "Restoring..."
+restore_tree "$LATEST$MANAGED_SHARE" "$MANAGED_SHARE" || die "Restore failed while putting back the dashboard."
+[ -d "$LATEST$MANAGED_LIB" ] && { restore_tree "$LATEST$MANAGED_LIB" "$MANAGED_LIB" || die "Restore failed while putting back the libraries."; }
+for f in "$LATEST"/usr/local/bin/ai-os-* "$LATEST"/usr/local/bin/start-ai-os-*; do
+  [ -e "$f" ] && sudo install -o root -g root -m 755 "$f" "/usr/local/bin/$(basename "$f")"
+done
+
+# Reset the version marker so the OS knows it's back on the old version (Q41).
+if [ -n "$FROM_REV" ]; then
+  printf '%s\n' "$FROM_REV" | sudo tee "$DASH_DIR/INSTALLED_REV" >/dev/null 2>&1 || true
+fi
+if [ -n "$FROM_VER" ]; then
+  printf '%s\n' "$FROM_VER" | sudo tee "$DASH_DIR/INSTALLED_VERSION" >/dev/null 2>&1 || true
+fi
+sudo rm -rf /usr/local/share/ai-os/__pycache__ /usr/local/lib/ai-os/*/__pycache__ 2>/dev/null || true
+
+mkdir -p "$(dirname "$HISTORY")"
+printf '{"at":"%s","event":"rollback","to":"%s","backup":"%s","result":"ok"}\n' \
+  "$(date -u +%FT%TZ)" "${FROM_VER:-unknown}" "$(basename "$LATEST")" >> "$HISTORY" 2>/dev/null || true
+
+say ""
+say "✓ Rolled back${FROM_VER:+ to $FROM_VER}."
+say ""
+read -rp "Press Enter to restart now (the screen will blink), or close to do it later... " _
+mkdir -p "$(dirname "$RESTART_SENTINEL")"
+: > "$RESTART_SENTINEL"
+pkill -TERM -f "[a]i-os-dashboard.py" 2>/dev/null || true
