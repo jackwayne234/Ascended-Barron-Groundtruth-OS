@@ -122,20 +122,23 @@ No AI is bundled — you choose. In the project terminal:
 - Follow that tool's own install instructions, start it **in the project folder**,
   and point it at `ground-truth.md`.
 
-## 8. Keep it: install to disk (advanced)
+## 8. Keep it: install to external drive (advanced)
 
-The live USB is the safest way to try GroundTruth OS. The dashboard includes a
-guarded **Install to disk** button for when you intentionally want to keep it.
+The live USB is the safest way to try GroundTruth OS. If you want it to keep
+your changes between boots, put it on a removable external drive (USB SSD,
+portable HDD, or similar). The dashboard includes a guarded **Install to
+external drive** button for when you intentionally want to keep it.
 
-Installing to disk is advanced and destructive: it erases the whole target disk.
-Only do it on a spare machine after backing up anything important.
+Installing to an external drive is advanced and destructive: it erases the whole
+target drive. Only do it on a spare machine after backing up anything important.
 
-If you intentionally want to install it, click **Install to disk** in the
-dashboard footer. You can also run `sudo ai-os-install-to-disk` from a terminal.
+If you intentionally want to install it, click **Install to external drive** in
+the dashboard footer. You can also run `sudo ai-os-install-to-disk` from a
+terminal.
 
-The installer lists your disks, refuses the USB you booted from and any disk
-currently in use, then asks you to type the exact target disk name and `ERASE`
-before it writes anything.
+The installer lists your disks, refuses the USB you booted from, refuses
+non-external/internal disks, and refuses any disk currently in use. It then asks
+you to type the exact target disk name and `ERASE` before it writes anything.
 
 The installed system also boots straight to the dashboard — **no login and no
 password.** See the **Security model** section of the [README](../README.md): you

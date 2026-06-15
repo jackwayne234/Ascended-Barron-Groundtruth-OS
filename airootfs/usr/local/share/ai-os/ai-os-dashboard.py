@@ -45,8 +45,8 @@ WORK_ZONE_TITLE = ""   # default: no title bar; specific screens (Settings, etc.
 # Where the AI OS logging module (ai_big_log) is installed. Ships with the OS;
 # the import below fails soft if it is absent (training-data buttons then no-op).
 AI_OS_LIB_DIR = pathlib.Path("/usr/local/lib/ai-os")
-# Install-to-disk helper (C10). Present on the live/installed OS, absent on a
-# dev host — the dashboard hides the Install button when it's missing.
+# Install-to-external-drive helper (C10). Present on the live/installed OS,
+# absent on a dev host — the dashboard hides the Install button when it's missing.
 INSTALLER_PATH = "/usr/local/bin/ai-os-install-to-disk"
 
 # In-pane window embedding (X window swallowing). OFF by default on the host:
@@ -1209,13 +1209,13 @@ class Dashboard:
                   bg="#92400e", fg=INK, activebackground="#b45309", activeforeground=INK,
                   relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
                   cursor="hand2").pack(side="right", padx=4, pady=4)
-        tk.Button(footer, text="Install to disk",
+        tk.Button(footer, text="Install to external drive",
                   command=self._install_to_disk,
                   bg="#4a1d1d", fg=INK, activebackground="#7f1d1d", activeforeground=INK,
                   relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
                   cursor="hand2").pack(side="right", padx=4, pady=4)
         # This launcher is intentionally visible but guarded: it opens a warning
-        # prompt first, then the terminal installer still requires exact disk
+        # prompt first, then the terminal installer still requires exact drive
         # selection and typing ERASE before touching anything.
 
     def _wifi_tick(self):
@@ -1387,7 +1387,7 @@ class Dashboard:
             messagebox.showerror(label, f"Couldn't {label.lower()} the machine:\n\n{e}")
 
     def _install_to_disk(self):
-        """Launch the guarded install-to-disk flow (C10) in a terminal.
+        """Launch the guarded install-to-external-drive flow (C10) in a terminal.
 
         This is only the launcher + a first 'are you sure' gate. ALL of the
         disk selection and the real safety confirmations (refuse the live
@@ -1397,34 +1397,34 @@ class Dashboard:
         single user 'barron' — no login, no password (locked decision)."""
         installer = shutil.which("ai-os-install-to-disk") or INSTALLER_PATH
         if not os.path.exists(installer):
-            messagebox.showerror("Install to disk",
+            messagebox.showerror("Install to external drive",
                                  "The installer isn't available on this system.",
                                  parent=self.root)
             return
         if not messagebox.askyesno(
-                "Install to disk",
-                "Install Ascended Barron: GroundTruth OS onto a disk?\n\n"
-                "A terminal will open and guide you. It ERASES the disk you "
-                "choose — but nothing is touched until you pick a disk and "
+                "Install to external drive",
+                "Install Ascended Barron: GroundTruth OS onto an external drive?\n\n"
+                "A terminal will open and guide you. It ERASES the external drive you "
+                "choose — but nothing is touched until you pick a drive and "
                 "type ERASE to confirm.\n\n"
                 "The installed system boots straight to the dashboard: no "
                 "login and no password (you can add one later).",
                 parent=self.root):
-            log_event("install_to_disk_cancelled", "user declined at first prompt", kind="user")
+            log_event("install_to_external_drive_cancelled", "user declined at first prompt", kind="user")
             return
-        log_event("install_to_disk", "user launched the disk installer", kind="user")
+        log_event("install_to_external_drive", "user launched the external-drive installer", kind="user")
         shell_command = (f"sudo {shlex.quote(installer)}; "
                          "echo; read -rp 'Press Enter to close this window...' _")
         args = find_terminal(shell_command)
         if not args:
-            messagebox.showerror("Install to disk",
+            messagebox.showerror("Install to external drive",
                                  "No terminal emulator is installed to run the installer.",
                                  parent=self.root)
             return
         try:
             subprocess.Popen(args, start_new_session=True, env=x11_env())
         except Exception as e:
-            messagebox.showerror("Install to disk",
+            messagebox.showerror("Install to external drive",
                                  f"Couldn't start the installer:\n\n{e}", parent=self.root)
 
     # ---- helpers ----

@@ -7,9 +7,9 @@ All notable changes to Ascended Barron: GroundTruth OS. This project uses
 ## v1.1.1 — 2026-06-15
 
 ### Changed
-- Restored a guarded **Install to disk** footer button so live-USB users have an
-  obvious path to keep the OS, while preserving the installer warning and typed
-  `ERASE` confirmation flow.
+- Restored a guarded **Install to external drive** footer button so live-USB
+  users have an obvious path to keep the OS on a portable drive, while
+  preserving the installer warning and typed `ERASE` confirmation flow.
 
 ## v1.1.0 — 2026-06-15
 
@@ -38,7 +38,8 @@ can see your version and undo an update.
 - The update check now compares **release versions** (not branch commits); it can
   be turned off in Settings.
 - The dashboard no longer surfaces **Install to disk** as a casual button; the
-  installer remains available as an advanced terminal command.
+  installer now frames the flow as an external-drive setup and remains available
+  as an advanced terminal command.
 
 ## v1.0.2 — 2026-06-15
 
@@ -92,8 +93,8 @@ Initial public release.
 
 - AI-native project workflow: create a task → **Work with AI** → project folder +
   `ground-truth.md` + a terminal in it. Bring your own AI.
-- Live "try it" boot + **Install to disk** (UEFI + legacy BIOS; single-user, boots
-  straight to the dashboard; no login/password).
+- Live "try it" boot + **Install to external drive** (UEFI + legacy BIOS;
+  single-user, boots straight to the dashboard; no login/password).
 - Local-only action logging with export-to-training-data.
 - Three sample projects + a sample training-data export.
 - The OS can improve itself through its own workflow.

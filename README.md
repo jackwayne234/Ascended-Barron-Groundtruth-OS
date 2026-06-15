@@ -65,9 +65,10 @@ planning, decisions, steps, and progress.
 2. **Verify** it with the published `SHA256SUMS` (see the
    [Getting Started guide](docs/GETTING-STARTED.md)).
 3. **Flash** it to a USB stick (Rufus, balenaEtcher, or `dd`).
-4. **Boot** it — it comes up live so you can try it instantly. To keep it, use
-   the guarded **Install to disk** button. Treat install-to-disk as advanced and
-   destructive: it erases the target disk after multiple confirmations.
+4. **Boot** it — it comes up live so you can try it instantly. To keep it on a
+   portable external drive, use the guarded **Install to external drive** button.
+   Treat external-drive installs as advanced and destructive: they erase the
+   chosen drive after multiple confirmations.
 
 Full step-by-step instructions (including BIOS/boot keys and Secure Boot) are in
 the **[Getting Started guide](docs/GETTING-STARTED.md)**.

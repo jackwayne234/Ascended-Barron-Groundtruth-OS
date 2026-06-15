@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Ascended Barron: GroundTruth OS — install-to-disk (C10).
+# Ascended Barron: GroundTruth OS — install-to-external-drive (C10).
 #
-# Copies the running LIVE system onto a chosen disk and makes it bootable on
-# both UEFI and legacy BIOS machines. By design:
+# Copies the running LIVE system onto a chosen removable/external drive and
+# makes it bootable on both UEFI and legacy BIOS machines. By design:
 #   * single auto-login user "barron", NO login screen, NO password, NO admin
 #     password (passwordless sudo) — the live system already ships this way, and
 #     we just copy it down, so there is nothing to ask the user here.
-#   * whole-disk automatic layout (this ERASES the chosen disk).
-#   * maximum safety guards: list disks, refuse the live medium and any in-use
-#     disk, require the exact disk name typed, final ERASE confirmation.
+#   * whole-disk automatic layout (this ERASES the chosen external drive).
+#   * maximum safety guards: list disks, refuse the live medium, refuse
+#     internal/non-external disks, refuse any in-use disk, require the exact
+#     disk name typed, final ERASE confirmation.
 #
 # Test seams (used ONLY by the desktop loop-device harness, never in normal use):
 #   AI_OS_INSTALL_ALLOW_LOOP=1     permit /dev/loop* as a target
@@ -46,7 +47,7 @@ part_node() { case "$1" in *[0-9]) printf '%sp%s\n' "$1" "$2" ;; *) printf '%s%s
 
 usage() {
   cat <<EOF
-$PROG — install Ascended Barron: GroundTruth OS to a disk.
+$PROG — install Ascended Barron: GroundTruth OS to an external drive.
 
 Usage: sudo $PROG [options]
   --target DEV     install to DEV non-interactively (e.g. /dev/sda, /dev/nvme0n1)
@@ -107,13 +108,14 @@ list_disks() {
 # ---------- banner ----------
 clear 2>/dev/null || true
 hr
-say "  $(c_grn 'Ascended Barron: GroundTruth OS — Install to disk')"
+say "  $(c_grn 'Ascended Barron: GroundTruth OS — Install to external drive')"
 say ""
 say "  Firmware detected: $(c_ylw "$([ "$FW" = uefi ] && echo 'UEFI' || echo 'Legacy BIOS')")"
 say "  This installs a single-user system that boots straight to the"
-say "  dashboard — no login, no password (you can add one later)."
+say "  dashboard on a removable/external drive — no login, no password (you"
+say "  can add one later)."
 say ""
-say "  $(c_red 'WARNING:') installing ERASES THE ENTIRE chosen disk."
+say "  $(c_red 'WARNING:') installing ERASES THE ENTIRE chosen external drive."
 hr
 say ""
 
@@ -154,6 +156,13 @@ if [ "$dtype" = loop ] && [ "$ALLOW_LOOP" != 1 ]; then die "$DEV is a loop devic
 [ "$dtype" = disk ] || [ "$ALLOW_LOOP" = 1 ] || die "$DEV is not a whole disk (type=$dtype)."
 is_live_disk "$DEV" && die "$DEV is the live medium you booted from — refusing to erase it."
 disk_in_use "$DEV"  && die "$DEV has a mounted partition (in use) — refusing to erase it."
+DEVBASE="$(basename "$DEV")"
+TRAN="$(lsblk -dnro TRAN "$DEV" 2>/dev/null | head -n1)"
+RM="$(cat "/sys/class/block/$DEVBASE/removable" 2>/dev/null || echo 0)"
+case "$TRAN" in usb|uas) external_ok=1 ;; *) external_ok=0 ;; esac
+if [ "$RM" != 1 ] && [ "$external_ok" != 1 ]; then
+  die "$DEV does not look like a removable/external drive (TRAN=${TRAN:-?}, RM=${RM:-?}). This installer is for external drives only."
+fi
 
 DSIZE="$(lsblk -dnro SIZE "$DEV" 2>/dev/null | head -n1)"
 DMODEL="$(lsblk -dnro MODEL "$DEV" 2>/dev/null | head -n1)"
@@ -163,7 +172,7 @@ say ""
 hr
 say "  About to $(c_red 'ERASE') and install onto:"
 say "    $(c_ylw "$DEV")   ${DSIZE:-?}   ${DMODEL:-?}"
-say "  EVERYTHING on this disk will be permanently destroyed."
+say "  EVERYTHING on this external drive will be permanently destroyed."
 hr
 if [ "$ASSUME_YES" != 1 ] && [ "$DRY_RUN" != 1 ]; then
   short="${DEV#/dev/}"
