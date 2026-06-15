@@ -2414,26 +2414,23 @@ class Dashboard:
         self.eisen_index = {}
         self.eisen_sel = None
 
-        # Two rows of buttons — all six in one row overflow the pane on the
-        # 1024x768 VM screen (Delete/Refresh were cut off at the right edge,
-        # 2026-06-06).
-        bars = tk.Frame(self.content, bg=PANEL)
-        bars.pack(fill="x", padx=8, pady=(8, 2))
-        row1 = tk.Frame(bars, bg=PANEL)
-        row1.pack(fill="x")
-        row2 = tk.Frame(bars, bg=PANEL)
-        row2.pack(fill="x", pady=(4, 0))
+        # One row of action buttons. Order follows the natural task lifecycle
+        # (create → work → complete), with reorganize + browse-done after, and
+        # the destructive Delete kept red and pushed to the far end so it's not
+        # hit by accident.
+        bar = tk.Frame(self.content, bg=PANEL)
+        bar.pack(fill="x", padx=8, pady=(8, 2))
 
-        def tb(row, text, cmd, color="#13233c"):
-            tk.Button(row, text=text, command=cmd, bg=color, fg=INK,
+        def tb(text, cmd, color="#13233c"):
+            tk.Button(bar, text=text, command=cmd, bg=color, fg=INK,
                       activebackground=ACCENT, activeforeground=INK, relief="raised", bd=2,
                       font=(FONT, 10, "bold"), padx=10, pady=5, cursor="hand2").pack(side="left", padx=3)
-        tb(row1, "➕ Add Task", self._eisen_add, ACCENT2)
-        tb(row1, "Open Project Terminal", self.open_selected_project_terminal, ACCENT)
-        tb(row2, "✓ Mark Done", self._eisen_done)
-        tb(row2, "Done Tasks", self._eisen_show_done_tasks)
-        tb(row2, "↔ Move", self._eisen_move)
-        tb(row2, "🗑 Delete", self._eisen_delete, "#7f1d1d")
+        tb("➕ Add Task",         self._eisen_add,                   ACCENT2)
+        tb("Open Project Terminal", self.open_selected_project_terminal, ACCENT)
+        tb("✓ Mark Done",        self._eisen_done)
+        tb("↔ Move",             self._eisen_move)
+        tb("Done Tasks",         self._eisen_show_done_tasks)
+        tb("🗑 Delete",          self._eisen_delete,                "#7f1d1d")
 
         # One-line orientation so first-time users know the core loop now that
         # this view is the boot default (replaces the old welcome screen).
