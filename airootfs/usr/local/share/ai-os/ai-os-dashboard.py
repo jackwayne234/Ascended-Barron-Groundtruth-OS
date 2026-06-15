@@ -554,6 +554,36 @@ def find_terminal(shell_command):
     return None
 
 
+def wifi_indicator():
+    """(text, color) for the header WiFi icon. Read-only status via nmcli — no
+    geolocation, just the connection state + SSID + signal of the active link."""
+    if not shutil.which("nmcli"):
+        return ("📶 —", MUTED)
+    try:
+        out = subprocess.check_output(["nmcli", "-t", "-f", "TYPE,STATE,CONNECTION", "dev"],
+                                      text=True, timeout=4, stderr=subprocess.DEVNULL)
+    except Exception:
+        return ("📶 ?", MUTED)
+    rows = [l.split(":") for l in out.splitlines() if l]
+    wifi = next((r for r in rows if r and r[0] == "wifi"), None)
+    if wifi and len(wifi) >= 2 and wifi[1] == "connected":
+        ssid = wifi[2] if len(wifi) > 2 and wifi[2] else "Wi-Fi"
+        bars = ""
+        try:
+            w = subprocess.check_output(["nmcli", "-t", "-f", "IN-USE,SIGNAL", "dev", "wifi"],
+                                        text=True, timeout=4, stderr=subprocess.DEVNULL)
+            for l in w.splitlines():
+                if l.startswith("*"):
+                    s = int(l.split(":")[1]); bars = " " + "▂▄▆█"[:max(1, min(4, s // 25 + 1))]; break
+        except Exception:
+            pass
+        return (f"📶 {ssid}{bars}", GOOD)
+    eth = next((r for r in rows if r and r[0] == "ethernet"), None)
+    if eth and len(eth) >= 2 and eth[1] == "connected":
+        return ("🔌 Wired", GOOD)
+    return ("📶 Not connected", "#f59e0b")  # amber — click to set up
+
+
 # ---------- weather (powered by the user's prebuilt desktop weather app) ----------
 import threading
 import importlib.util
@@ -822,6 +852,12 @@ class Dashboard:
         self.battery = tk.StringVar()
         tk.Label(row, textvariable=self.battery, bg=HEAD, fg=GOOD,
                  font=(FONT, 10, "bold")).pack(side="right", padx=(12, 0))
+        self.wifi_status = tk.StringVar(value="📶 …")
+        self.wifi_label = tk.Label(row, textvariable=self.wifi_status, bg=HEAD, fg=MUTED,
+                                   font=(FONT, 10, "bold"), cursor="hand2")
+        self.wifi_label.pack(side="right", padx=(12, 0))
+        self.wifi_label.bind("<Button-1>",
+                             lambda e: self.open_setup_script("WiFi Setup", "/usr/local/bin/ai-os-wifi-setup"))
         self.biglog_status = tk.StringVar(value="Local Logs: checking")
         self.biglog_label = tk.Label(row, textvariable=self.biglog_status, bg=HEAD, fg=MUTED,
                                      font=(FONT, 10, "bold"), cursor="hand2")
@@ -833,6 +869,7 @@ class Dashboard:
         self.clock_label.bind("<Button-1>", self._pick_timezone)  # click clock -> set timezone
         self._tick()
         self._biglog_refresh()
+        self._wifi_tick()
 
         self.status_bar = tk.Label(root, textvariable=self.status, bg="#022c22", fg=GOOD,
                                    font=(FONT, 11, "bold"), pady=6, anchor="w", padx=16)
@@ -929,6 +966,14 @@ class Dashboard:
                       bg="#155e75", fg=INK, activebackground="#0e7490", activeforeground=INK,
                       relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
                       cursor="hand2").pack(side="right", padx=4, pady=4)
+
+    def _wifi_tick(self):
+        text, color = wifi_indicator()
+        if hasattr(self, "wifi_status"):
+            self.wifi_status.set(text)
+        if hasattr(self, "wifi_label"):
+            self.wifi_label.configure(fg=color)
+        self.root.after(6000, self._wifi_tick)
 
     def _resource_tick(self):
         cur = read_cpu_times()
