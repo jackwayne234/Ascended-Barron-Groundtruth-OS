@@ -41,7 +41,7 @@ AMBER = "#d97706"   # "update available" highlight on the Update OS tile
 FONT = "DejaVu Sans"
 HOME = pathlib.Path.home()
 WORKSPACE = HOME / "workspace"
-WORK_ZONE_TITLE = "Empty space for your windows"
+WORK_ZONE_TITLE = ""   # default: no title bar; specific screens (Settings, etc.) override
 # Where the AI OS logging module (ai_big_log) is installed. Ships with the OS;
 # the import below fails soft if it is absent (training-data buttons then no-op).
 AI_OS_LIB_DIR = pathlib.Path("/usr/local/lib/ai-os")
@@ -985,8 +985,18 @@ class Dashboard:
         right = tk.Frame(main, bg=PANEL, highlightbackground="#1e3a5f", highlightthickness=1)
         right.pack(side="left", fill="both", expand=True, padx=(6, 12), pady=10)
         self.pane_title = tk.StringVar(value=WORK_ZONE_TITLE)
-        tk.Label(right, textvariable=self.pane_title, bg=HEAD, fg=INK,
-                 font=(FONT, 13, "bold"), pady=8, padx=14, anchor="w").pack(fill="x")
+        self.pane_title_label = tk.Label(right, textvariable=self.pane_title, bg=HEAD, fg=INK,
+                                          font=(FONT, 13, "bold"), pady=8, padx=14, anchor="w")
+        # Auto-show the title bar when a non-empty title is set, hide it when
+        # the title is cleared. Welcome (no title) → no header bar; Settings
+        # (title="Settings") → header shows. Avoids an empty bar at the top.
+        def _sync_pane_title_label(*_):
+            if self.pane_title.get():
+                if not self.pane_title_label.winfo_ismapped():
+                    self.pane_title_label.pack(fill="x")
+            else:
+                self.pane_title_label.pack_forget()
+        self.pane_title.trace_add("write", _sync_pane_title_label)
         self.content = tk.Frame(right, bg=PANEL)
         self.content.pack(fill="both", expand=True)
 
