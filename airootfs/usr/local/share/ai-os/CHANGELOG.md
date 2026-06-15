@@ -6,23 +6,19 @@ All notable changes to Ascended Barron: GroundTruth OS. This project uses
 
 ## v1.1.0 — unreleased
 
-A safer, clearer update system. Updates now come from signed releases, you can
-see your version and undo an update, and the OS can update its base system too.
+A safer, clearer update system. Updates now come from published releases, and you
+can see your version and undo an update.
 
 ### Added
-- **Signed, tag-based updates** — "Update OS" now installs the latest *published
-  release* (a git tag) and verifies its **GPG signature** before applying. A bad
-  or missing signature is refused outright, so you only ever run code the project
-  actually signed.
+- **Tag-based updates** — "Update OS" now installs the latest *published release*
+  (a git tag) instead of the moving branch tip, so you only ever run versions the
+  project actually cut.
 - **Settings screen** (in Apps) with an Updates section: see your current
-  version, **check for updates now**, turn the automatic update check on/off,
-  read **what's new**, and **undo the last update**.
+  version, **check for updates now**, turn the automatic update check on/off, and
+  **undo the last update**.
 - **"Undo last update"** — one click restores the previous version from the
   backup the updater makes (your work in `~/workspace` is never involved).
-- **"System Update"** button (bottom bar) — updates the underlying Arch system
-  (kernel, browser, drivers, security fixes) with a full, safe `pacman -Syu`.
-- **Version shown** in the bottom bar and Settings; **"what's new"** pops up once
-  after an update.
+- **Version shown** in the bottom bar and Settings.
 - **Update available banner** — a dismissible notice (in addition to the amber
   tile) when a newer version is published; it only comes back for a newer one.
 
@@ -32,12 +28,8 @@ see your version and undo an update, and the OS can update its base system too.
   overwriting files you changed**, removes files dropped in a new release, stages
   and verifies before applying, keeps the last 3 backups, and relaunches the
   dashboard directly (no black-screen risk).
-- The update check now compares **release versions** (not branch commits) and
-  re-checks when the network reconnects; it can be turned off in Settings.
-
-### Security
-- Downloadable ISOs now ship a **GPG-signed `SHA256SUMS`**, so a download can be
-  verified as genuinely from the project, not merely intact.
+- The update check now compares **release versions** (not branch commits); it can
+  be turned off in Settings.
 
 ## v1.0.2 — 2026-06-15
 

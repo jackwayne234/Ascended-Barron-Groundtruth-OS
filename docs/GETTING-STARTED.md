@@ -33,22 +33,6 @@ sha256sum -c SHA256SUMS
 ```
 You want to see `OK` next to the ISO name.
 
-### Optional: confirm the release is genuinely from the project (GPG)
-
-From **v1.1.0**, releases also include a **signed** `SHA256SUMS.asc`. Verifying it
-proves the checksums (and therefore the ISO) really came from the project, not
-just that the download is intact. On macOS / Linux with `gpg` installed:
-
-```sh
-# one-time: import the project's release public key (shipped in the repo)
-curl -fsSL https://raw.githubusercontent.com/jackwayne234/Ascended-Barron-Groundtruth-OS/main/groundtruth-os/airootfs/usr/local/share/ai-os/release-pubkey.asc | gpg --import
-
-# then verify the signature on the checksums
-gpg --verify SHA256SUMS.asc SHA256SUMS
-```
-A "Good signature" line means it's authentic. (The same key's fingerprint is
-listed on the release page so you can cross-check it.)
-
 ## 3. Put it on a USB stick
 
 You need a USB stick of **4 GB or larger**. **This erases the USB stick**, so use
