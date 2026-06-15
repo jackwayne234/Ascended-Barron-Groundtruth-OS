@@ -1635,9 +1635,6 @@ class Dashboard:
         # survive dashboard restarts and future label tweaks.
         return [
             ("open_terminal", "Open Terminal", self.open_plain_terminal, False),
-            ("wifi_setup", "1 WiFi Setup", lambda: self.open_setup_script("1 WiFi Setup", "/usr/local/bin/ai-os-wifi-setup"), True),
-            ("router_check", "2 Router Check", lambda: self.open_setup_script("2 Router Check", "/usr/local/bin/ai-os-router-check"), True),
-            ("internet_check", "Internet Check", lambda: self.open_setup_script("Internet Check", "/usr/local/bin/ai-os-internet-check"), True),
             ("todo_list", "To-Do List", self.open_eisenhower, False),
             ("update_os", "Update OS", lambda: self.open_setup_script("Update OS", "/usr/local/bin/ai-os-update"), True),
             ("settings", "Settings", self.open_settings, True),
