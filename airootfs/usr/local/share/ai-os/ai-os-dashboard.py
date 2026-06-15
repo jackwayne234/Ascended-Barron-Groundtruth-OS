@@ -1157,7 +1157,9 @@ class Dashboard:
         footer.pack(side="bottom", fill="x")
         tk.Label(footer, text="Esc = windowed/fullscreen     Ctrl+Q = quit",
                  bg=HEAD, fg=BODY, font=(FONT, 10), pady=6, padx=16).pack(side="left")
-        # Open Terminal lives in Apps now, so the footer stays uncluttered.
+        # No Open Terminal tile; the only terminal entry points are the
+        # "Open Project Terminal" button in the Eisenhower panel and any
+        # terminal launcher on the desktop. Footer stays uncluttered.
         self.resource_status = tk.StringVar(value="CPU --  RAM avail --  Storage --")
         self.resource_label = tk.Label(footer, textvariable=self.resource_status,
                                        bg=HEAD, fg=GOOD, font=(FONT, 10, "bold"),
@@ -1641,7 +1643,6 @@ class Dashboard:
         # key, label, command, archiveable. Keys are stable so archived choices
         # survive dashboard restarts and future label tweaks.
         return [
-            ("open_terminal", "Open Terminal", self.open_plain_terminal, False),
             ("todo_list", "To-Do List", self.open_eisenhower, False),
         ]
 
@@ -2357,51 +2358,6 @@ class Dashboard:
                  justify="left", wraplength=900).pack(expand=True)
         self._flash("No terminal emulator found")
 
-    def _plain_shell_command(self):
-        """A real, no-friction terminal. This exists because the laptop ISO
-        must always have a plain escape hatch: click Open Terminal, get bash."""
-        lines = [
-            "clear",
-            "echo 'Ascended Barron'",
-            "echo '==============='",
-            "echo",
-            "echo 'This is a normal terminal window.'",
-            "echo 'For project work, select a task and open its project terminal.'",
-            "echo",
-            "echo 'Terminal tips:'",
-            "echo '  • Copy: select text, then press Ctrl+Shift+C.'",
-            "echo '  • Paste: press Ctrl+Shift+V.'",
-            "echo '  • If the fallback xterm ever appears, use middle-click or Shift+Insert.'",
-            "echo '  • Most AI OS buttons avoid copy/paste entirely.'",
-            "echo",
-            "exec bash",
-        ]
-        return "; ".join(lines)
-
-    def open_plain_terminal(self):
-        self._clear()
-        self.pane_title.set(WORK_ZONE_TITLE)
-        cmd = self._plain_shell_command()
-        if (EMBED or TERMINAL_PANE) and shutil.which("xterm"):
-            host = tk.Frame(self.content, bg="#020912")
-            host.pack(fill="both", expand=True)
-            host.update_idletasks()
-            self.term_proc = subprocess.Popen(
-                xterm_args(cmd, into=host.winfo_id()),
-                start_new_session=True)
-            self._flash("Terminal is open")
-            log_event("terminal_opened", "plain Open Terminal app", kind="system")
-            return
-        args = find_terminal(cmd)
-        if args:
-            subprocess.Popen(args, start_new_session=True)
-            self._flash("Terminal opened in its own window")
-            log_event("terminal_opened", "external plain terminal", kind="system")
-            return
-        msg = "No terminal emulator is installed."
-        tk.Label(self.content, text=msg, bg=PANEL, fg=BODY, font=(FONT, 13),
-                 justify="left", wraplength=900).pack(expand=True)
-        self._flash("No terminal emulator found")
 
     def open_setup_script(self, title, script_path):
         """Open one of the simple setup scripts as an Apps button.
