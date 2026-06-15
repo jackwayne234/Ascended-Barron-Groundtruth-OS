@@ -239,18 +239,15 @@ def read_battery_status(base="/sys/class/power_supply"):
 
 
 def format_battery_indicator(capacity, status="Unknown"):
-    """Small header text: icon + percent. Empty string on desktops/no battery."""
+    """Small header text: state + percent (plain text — emoji render hollow on
+    the ISO with no emoji font). Empty string on desktops/no battery."""
     if capacity is None:
         return ""
     status_l = (status or "").lower()
     if (("charging" in status_l and "discharging" not in status_l)
             or "full" in status_l):
-        icon = "🔌"
-    elif capacity <= 15:
-        icon = "🪫"
-    else:
-        icon = "🔋"
-    return f"{icon} {capacity}%"
+        return f"Charging {capacity}%"
+    return f"Battery {capacity}%"
 
 
 # ---------- resource monitor ----------
@@ -558,23 +555,23 @@ def wifi_indicator():
     """(text, color) for the header WiFi icon. Read-only status via nmcli — no
     geolocation, just the connection state + SSID + signal of the active link."""
     if not shutil.which("nmcli"):
-        return ("📶 —", MUTED)
+        return ("Wi-Fi —", MUTED)
     try:
         out = subprocess.check_output(["nmcli", "-t", "-f", "TYPE,STATE,CONNECTION", "dev"],
                                       text=True, timeout=4, stderr=subprocess.DEVNULL)
     except Exception:
-        return ("📶 ?", MUTED)
+        return ("Wi-Fi ?", MUTED)
     rows = [l.split(":") for l in out.splitlines() if l]
     wifi = next((r for r in rows if r and r[0] == "wifi"), None)
     if wifi and len(wifi) >= 2 and wifi[1] == "connected":
-        # No signal bars: they changed width every poll and jittered the header.
-        # Just a steady "connected" icon + the network name.
-        ssid = (wifi[2] if len(wifi) > 2 and wifi[2] else "Wi-Fi")[:14]
-        return (f"📶 {ssid}", GOOD)
+        # Plain text only (no emoji/bars — they render hollow and the bars also
+        # jittered the header). Just a steady network name.
+        ssid = (wifi[2] if len(wifi) > 2 and wifi[2] else "Wi-Fi")[:9]
+        return (f"Wi-Fi {ssid}", GOOD)
     eth = next((r for r in rows if r and r[0] == "ethernet"), None)
     if eth and len(eth) >= 2 and eth[1] == "connected":
-        return ("🔌 Wired", GOOD)
-    return ("📶 Not connected", "#f59e0b")  # amber — click to set up
+        return ("Wired", GOOD)
+    return ("No Wi-Fi", "#f59e0b")  # amber — click to set up
 
 
 # ---------- weather (powered by the user's prebuilt desktop weather app) ----------
@@ -844,8 +841,8 @@ class Dashboard:
         self.clock = tk.StringVar()
         self.battery = tk.StringVar()
         tk.Label(row, textvariable=self.battery, bg=HEAD, fg=GOOD,
-                 font=(FONT, 10, "bold")).pack(side="right", padx=(12, 0))
-        self.wifi_status = tk.StringVar(value="📶 …")
+                 font=(FONT, 10, "bold"), width=13, anchor="e").pack(side="right", padx=(12, 0))
+        self.wifi_status = tk.StringVar(value="Wi-Fi …")
         # Fixed width + right-anchor so status changes never shift the header.
         self.wifi_label = tk.Label(row, textvariable=self.wifi_status, bg=HEAD, fg=MUTED,
                                    font=(FONT, 10, "bold"), cursor="hand2", width=16, anchor="e")
