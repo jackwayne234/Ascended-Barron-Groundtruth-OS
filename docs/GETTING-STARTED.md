@@ -155,7 +155,7 @@ can add a password or encryption yourself if you want them.
 - **"Weather unavailable":** you're offline, or the weather component isn't
   reachable — harmless, the rest still works.
 - **Reboot resets everything:** that's expected in live mode. To keep work, save
-  it somewhere external or use the advanced install-to-disk flow on a spare
+  it somewhere external or use the advanced external-drive install flow on a spare
   machine.
 
 This is a personal project shared as-is — **no support is promised**, but it's

@@ -47,9 +47,10 @@ autologin/user/session files replace releng's root-autologin.
 
 - **Single user `barron`** (non-root, uid 1000, in `wheel`, no password) with
   autologin on tty1; `~/.bash_profile` runs `startx`, `~/.xinitrc` launches the
-  dashboard. This same account is used live AND when installed to disk, so an
-  installed machine also boots straight to the dashboard — no login, no password
-  (the installer just copies this system to disk; see C10 / `ai-os-install-to-disk`).
+  dashboard. This same account is used live AND when installed on a removable
+  external drive, so the installed machine also boots straight to the dashboard
+  — no login, no password (the installer just copies this system to the target
+  drive; see C10 / `ai-os-install-to-disk`).
 - **NetworkManager** enabled at boot; releng's systemd-networkd/resolved and
   sshd are disabled (no auto-SSH on a public image).
 - **Hostname** `groundtruth-os`, locale `en_US.UTF-8`, timezone UTC.
