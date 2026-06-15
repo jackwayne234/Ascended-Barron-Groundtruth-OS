@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Terminal
-Comment=Command-line terminal
-Exec=lxterminal
-Icon=lxterminal
-Terminal=false
-Categories=System;TerminalEmulator;
