@@ -1209,14 +1209,10 @@ class Dashboard:
                   bg="#92400e", fg=INK, activebackground="#b45309", activeforeground=INK,
                   relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
                   cursor="hand2").pack(side="right", padx=4, pady=4)
-        # Install-to-disk (C10): only show when the installer is present (i.e. on
-        # the live/installed OS, not on a dev host), so there's never a dead button.
-        if shutil.which("ai-os-install-to-disk") or os.path.exists(INSTALLER_PATH):
-            tk.Button(footer, text="Install to disk",
-                      command=self._install_to_disk,
-                      bg="#155e75", fg=INK, activebackground="#0e7490", activeforeground=INK,
-                      relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
-                      cursor="hand2").pack(side="right", padx=4, pady=4)
+        # Install-to-disk button removed: the laptop is now an installed system,
+        # not a live environment that needs the installer surfaced in the UI.
+        # The ai-os-install-to-disk script is still on the system if it's ever
+        # needed; the dashboard no longer offers it.
 
     def _wifi_tick(self):
         text, color = wifi_indicator()
