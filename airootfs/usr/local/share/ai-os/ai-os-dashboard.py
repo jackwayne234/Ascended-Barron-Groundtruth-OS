@@ -10,6 +10,7 @@ Design notes:
 - Footer holds the machine controls: volume slider, Restart, Power Off.
 """
 import os
+import re
 import json
 import time
 import uuid
@@ -78,10 +79,18 @@ STATE_DIR = HOME / ".local" / "state" / "ai-os"
 # The log lives in a fixed per-user data dir (no hard-coded project folder).
 SESSION_ID = uuid.uuid4().hex[:8]
 DASH_DIR = pathlib.Path(__file__).resolve().parent
-# Self-update: the public repo the "Update OS" tile pulls from, and the file
-# that records the installed commit (written by ai-os-update, stamped at build).
+# Self-update: the public repo the "Update OS" tile pulls from, and the files
+# that record the installed version (written by ai-os-update, stamped at build).
 UPDATE_REPO = "https://github.com/jackwayne234/Ascended-Barron-Groundtruth-OS.git"
-INSTALLED_REV_FILE = DASH_DIR / "INSTALLED_REV"
+INSTALLED_REV_FILE = DASH_DIR / "INSTALLED_REV"          # full commit SHA
+INSTALLED_VERSION_FILE = DASH_DIR / "INSTALLED_VERSION"  # release tag, e.g. v1.1.0 (Q54)
+CHANGELOG_FILE = DASH_DIR / "CHANGELOG.md"               # bundled "what's new" source (Q31)
+# User settings (update-check opt-out, banner-dismiss state, …) live here — user
+# data the updater never touches (Q29).
+CONFIG_DIR = HOME / ".config" / "ai-os"
+SETTINGS_FILE = CONFIG_DIR / "settings.json"
+# Where ai-os-update saves the pre-update backups (undo is offered when present).
+UPDATE_BACKUP_DIR = HOME / ".local" / "share" / "ai-os" / "update-backups"
 # In VM mode DASH_DIR is read-only squashfs, so the fallback log lives in the
 # writable state dir instead; on the host it stays beside the script (unchanged).
 LOG_DIR = (STATE_DIR / "logs") if VM else (DASH_DIR / "logs")
@@ -813,6 +822,110 @@ def embeddable(wid):
     return "mutter" not in cls and "gnome-shell" not in cls
 
 
+# ---------- settings (user prefs; updater never touches these) — Q29 ----------
+def load_settings():
+    try:
+        return json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def save_settings(s):
+    try:
+        SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        SETTINGS_FILE.write_text(json.dumps(s, indent=2, sort_keys=True), encoding="utf-8")
+        return True
+    except Exception:
+        return False
+
+
+def get_setting(key, default=None):
+    return load_settings().get(key, default)
+
+
+def set_setting(key, value):
+    s = load_settings()
+    s[key] = value
+    save_settings(s)
+
+
+# ---------- version helpers (self-update) — Q30/Q54 ---------------------------
+def installed_version_str():
+    """The friendly release name (e.g. v1.1.0). Falls back to a short commit or
+    'unknown' on older/dev builds that predate the version marker."""
+    try:
+        v = INSTALLED_VERSION_FILE.read_text(encoding="utf-8").strip()
+        if v:
+            return v
+    except Exception:
+        pass
+    try:
+        rev = INSTALLED_REV_FILE.read_text(encoding="utf-8").strip().split()[0]
+        if rev:
+            return rev[:7]
+    except Exception:
+        pass
+    return "unknown"
+
+
+def parse_version(s):
+    """'v1.2.3' -> (1,2,3); None if it isn't a plain release tag (e.g. dev-…)."""
+    if not s:
+        return None
+    m = re.match(r"^v(\d+)\.(\d+)\.(\d+)$", s.strip())
+    return tuple(int(g) for g in m.groups()) if m else None
+
+
+def latest_remote_release():
+    """Highest published release tag (vX.Y.Z) on GitHub, or None. Pre-release
+    tags (e.g. -rc1) are ignored. One small, quiet network call (Q1)."""
+    try:
+        out = subprocess.check_output(
+            ["git", "ls-remote", "--tags", "--refs", UPDATE_REPO],
+            timeout=20, text=True, stderr=subprocess.DEVNULL)
+    except Exception:
+        return None
+    best = None
+    for line in out.splitlines():
+        ref = line.split("refs/tags/")[-1].strip() if "refs/tags/" in line else ""
+        v = parse_version(ref)
+        if v and (best is None or v > best[0]):
+            best = (v, ref)
+    return best[1] if best else None
+
+
+def changelog_section(version=None):
+    """Return the bundled CHANGELOG text for `version` (default: the installed
+    one), or the whole file if the section can't be isolated (Q31)."""
+    try:
+        text = CHANGELOG_FILE.read_text(encoding="utf-8")
+    except Exception:
+        return ""
+    ver = version or installed_version_str()
+    lines = text.splitlines()
+    start = None
+    for i, ln in enumerate(lines):
+        if ln.startswith("## ") and ver and ver in ln:
+            start = i
+            break
+    if start is None:
+        return text.strip()
+    end = len(lines)
+    for j in range(start + 1, len(lines)):
+        if lines[j].startswith("## "):
+            end = j
+            break
+    return "\n".join(lines[start:end]).strip()
+
+
+def has_update_backup():
+    """True if ai-os-update has a backup to undo (Q57 greys the button otherwise)."""
+    try:
+        return any(p.is_dir() for p in UPDATE_BACKUP_DIR.iterdir())
+    except Exception:
+        return False
+
+
 class Dashboard:
     """Layout matches the user's paper sketch (IMG_0622): left column =
     app tiles + 7-day forecast; right side = one big terminal / interactive app
@@ -871,6 +984,11 @@ class Dashboard:
                                    font=(FONT, 11, "bold"), pady=6, anchor="w", padx=16)
         self.status_bar.pack(fill="x")
 
+        # Thin "update available" banner — dismissible per-version (Q17/Q33).
+        # Created here so it always slots directly under the status bar; it is
+        # packed/unpacked on demand by _refresh_update_banner (empty until then).
+        self.update_banner = tk.Frame(root, bg=AMBER)
+
         # Bottom bars are packed BEFORE the main area (with side="bottom") so
         # a tall right pane (e.g. the full Eisenhower matrix) compresses
         # instead of pushing them off the screen — pack clips whatever was
@@ -907,10 +1025,14 @@ class Dashboard:
         # Boot straight into the to-do list — it's the heart of the OS. The
         # welcome/empty-space view still shows when you close an app or terminal.
         self.open_eisenhower()
-        # Quietly check GitHub for a newer version; the Update OS tile turns
-        # amber if one is available. Delayed + threaded so it never slows boot.
+        # Quietly check GitHub for a newer release; the Update OS tile turns
+        # amber + a banner shows if one is available. Delayed + threaded so it
+        # never slows boot.
         self.update_available = False
+        self.latest_version = None
         self.root.after(3000, self._schedule_update_check)
+        # If we just updated, show "what's new" once (Q31/Q45).
+        self.root.after(1200, self._maybe_show_whats_new)
 
     # ---- self-update: is a newer version available? ----
     def _schedule_update_check(self):
@@ -919,30 +1041,160 @@ class Dashboard:
         self.root.after(6 * 60 * 60 * 1000, self._schedule_update_check)
 
     def _update_check_worker(self):
-        """Compare the installed commit against the repo's latest. Fail silent
-        (no network / no baseline = leave the tile alone — never a false alarm)."""
-        try:
-            local = INSTALLED_REV_FILE.read_text(encoding="utf-8").strip().split()[0]
-        except Exception:
-            local = ""
-        if not local:
-            return  # unknown baseline (e.g. pre-update-feature ISO) — don't flag
-        try:
-            out = subprocess.check_output(
-                ["git", "ls-remote", UPDATE_REPO, "refs/heads/main"],
-                timeout=20, text=True, stderr=subprocess.DEVNULL)
-            remote = out.split()[0] if out.strip() else ""
-        except Exception:
-            return  # offline or git unavailable — stay quiet
-        if remote and remote != local and not remote.startswith(local):
+        """Compare the installed RELEASE TAG against the latest published one.
+        Fail silent (opt-out / no network / dev build = leave things alone, never
+        a false alarm). Q1/Q8."""
+        if not get_setting("update_check_enabled", True):
+            return  # the user turned the update check off (Q8)
+        local = parse_version(installed_version_str())
+        if local is None:
+            return  # dev/unknown build — don't flag
+        latest = latest_remote_release()
+        lv = parse_version(latest or "")
+        if lv and lv > local:
+            self.latest_version = latest
             self.root.after(0, self._set_update_available)
 
     def _set_update_available(self):
         if not getattr(self, "update_available", False):
             self.update_available = True
-            log_event("update_available", "a newer version is on GitHub", kind="system")
+            log_event("update_available",
+                      f"a newer version is on GitHub ({getattr(self, 'latest_version', '?')})",
+                      kind="system")
             if hasattr(self, "app_grid"):
                 self._draw_app_tiles()
+            self._refresh_update_banner()
+
+    # ---- self-update: banner, what's-new, settings (Q17/Q31/Q43/Q56) ----
+    def _refresh_update_banner(self):
+        """Show/hide the thin 'update available' banner. Dismiss hides it for the
+        current version; it returns only when a newer version appears (Q17/Q33)."""
+        if not hasattr(self, "update_banner"):
+            return
+        for w in self.update_banner.winfo_children():
+            w.destroy()
+        latest = getattr(self, "latest_version", None)
+        dismissed = get_setting("banner_dismissed_version", "")
+        if not (getattr(self, "update_available", False) and latest and dismissed != latest):
+            self.update_banner.pack_forget()
+            return
+        tk.Label(self.update_banner,
+                 text=f"  A new version ({latest}) is available — open “Update OS” to get it.",
+                 bg=AMBER, fg="#1a1206", font=(FONT, 10, "bold"), anchor="w"
+                 ).pack(side="left", fill="x", expand=True, pady=4)
+        tk.Button(self.update_banner, text="Update OS",
+                  command=lambda: self.open_setup_script("Update OS", "/usr/local/bin/ai-os-update"),
+                  bg="#1a1206", fg=INK, font=(FONT, 9, "bold"), relief="flat",
+                  padx=8, pady=1, cursor="hand2").pack(side="right", padx=(4, 6), pady=4)
+        tk.Button(self.update_banner, text="✕", command=self._dismiss_update_banner,
+                  bg=AMBER, fg="#1a1206", font=(FONT, 10, "bold"), relief="flat",
+                  padx=6, pady=1, cursor="hand2").pack(side="right", pady=4)
+        self.update_banner.pack(fill="x", after=self.status_bar)
+
+    def _dismiss_update_banner(self):
+        latest = getattr(self, "latest_version", "")
+        if latest:
+            set_setting("banner_dismissed_version", latest)
+        self._refresh_update_banner()
+
+    def _maybe_show_whats_new(self):
+        """After updating, show 'what's new' once for the new version (Q31/Q45)."""
+        cur = installed_version_str()
+        if parse_version(cur) is None:
+            return  # dev/unknown build — nothing to announce
+        if get_setting("whatsnew_shown_version", "") == cur:
+            return
+        set_setting("whatsnew_shown_version", cur)
+        body = changelog_section(cur)
+        if body:
+            self._show_whats_new(cur, body)
+
+    def _show_whats_new(self, version=None, body=None):
+        version = version or installed_version_str()
+        if body is None:
+            body = changelog_section(version) or "No changelog is available for this version."
+        win = tk.Toplevel(self.root)
+        win.title(f"What's new — {version}")
+        win.configure(bg=PANEL, padx=18, pady=18)
+        tk.Label(win, text=f"What's new in {version}", bg=PANEL, fg=INK,
+                 font=(FONT, 14, "bold")).pack(anchor="w")
+        txt = tk.Text(win, bg="#0b1626", fg=BODY, font=(FONT, 11), relief="flat",
+                      wrap="word", width=72, height=18, highlightthickness=0, padx=10, pady=10)
+        txt.insert("1.0", body)
+        txt.configure(state="disabled")
+        txt.pack(fill="both", expand=True, pady=10)
+        tk.Button(win, text="✕ Close", command=win.destroy, bg="#13233c", fg=INK,
+                  font=(FONT, 11, "bold"), relief="raised", bd=2, padx=10, pady=6,
+                  cursor="hand2").pack(side="right")
+        self._popup_prep(win)
+
+    def _check_updates_now(self):
+        """Manual 'Check for updates now' (Q56) — same check, on demand."""
+        self._flash("Checking for updates…")
+
+        def worker():
+            latest = latest_remote_release()
+            cur = parse_version(installed_version_str())
+            lv = parse_version(latest or "")
+
+            def done():
+                if lv and cur and lv > cur:
+                    self.latest_version = latest
+                    self._set_update_available()
+                    self._flash(f"Update available: {latest}")
+                else:
+                    self._flash("You're up to date.")
+            self.root.after(0, done)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _undo_last_update(self):
+        if not has_update_backup():
+            messagebox.showinfo("Undo Last Update", "There's no update to undo yet.", parent=self.root)
+            return
+        self.open_setup_script("Undo Last Update", "/usr/local/bin/ai-os-rollback")
+
+    def open_settings(self):
+        """Settings screen — updates section only in v1.1.0 (Q43/Q56)."""
+        self._clear()
+        self.pane_title.set("Settings")
+        wrap = tk.Frame(self.content, bg=PANEL)
+        wrap.pack(fill="both", expand=True, padx=20, pady=16)
+        tk.Label(wrap, text="Settings", bg=PANEL, fg=INK,
+                 font=(FONT, 16, "bold")).pack(anchor="w")
+        tk.Label(wrap, text="Updates", bg=PANEL, fg=SUB,
+                 font=(FONT, 12, "bold")).pack(anchor="w", pady=(14, 4))
+        tk.Label(wrap, text=f"Current version:  {installed_version_str()}",
+                 bg=PANEL, fg=BODY, font=(FONT, 11)).pack(anchor="w", pady=2)
+
+        self._setting_update_check = tk.BooleanVar(value=bool(get_setting("update_check_enabled", True)))
+
+        def toggle_check():
+            on = bool(self._setting_update_check.get())
+            set_setting("update_check_enabled", on)
+            self._flash("Update checks " + ("on" if on else "off"))
+        tk.Checkbutton(wrap, text="Automatically check for updates (one small check on startup)",
+                       variable=self._setting_update_check, command=toggle_check,
+                       bg=PANEL, fg=BODY, selectcolor="#0b1626", activebackground=PANEL,
+                       activeforeground=INK, font=(FONT, 11), anchor="w").pack(anchor="w", pady=2)
+
+        def btn(parent, text, cmd, color="#13233c", state="normal"):
+            return tk.Button(parent, text=text, command=cmd, bg=color, fg=INK,
+                             activebackground=ACCENT, activeforeground=INK, relief="raised",
+                             bd=2, font=(FONT, 11, "bold"), padx=10, pady=6, cursor="hand2",
+                             state=state)
+        row = tk.Frame(wrap, bg=PANEL)
+        row.pack(anchor="w", pady=(10, 2))
+        btn(row, "Check for updates now", self._check_updates_now).pack(side="left", padx=(0, 6))
+        btn(row, "Update OS", lambda: self.open_setup_script("Update OS", "/usr/local/bin/ai-os-update"), ACCENT).pack(side="left", padx=6)
+        btn(row, "What's new", self._show_whats_new).pack(side="left", padx=6)
+
+        row2 = tk.Frame(wrap, bg=PANEL)
+        row2.pack(anchor="w", pady=(8, 2))
+        undo_state = "normal" if has_update_backup() else "disabled"
+        btn(row2, "Undo last update", self._undo_last_update, "#7c2d12", undo_state).pack(side="left")
+        tk.Label(row2, text=("" if undo_state == "normal" else "  (nothing to undo yet)"),
+                 bg=PANEL, fg=MUTED, font=(FONT, 10)).pack(side="left", padx=6)
+        log_event("settings_opened", kind="user")
 
     # ---- footer: volume + power controls ----
     def _build_footer(self, root):
@@ -964,6 +1216,12 @@ class Dashboard:
         self.resource_label.bind("<Button-1>", self._show_resource_details)
         self._cpu_prev = read_cpu_times()
         self.root.after(2000, self._resource_tick)
+        # Current version (Q30/Q44) — quiet, click to open Settings.
+        self.version_label = tk.Label(footer, text=installed_version_str(),
+                                      bg=HEAD, fg=MUTED, font=(FONT, 10),
+                                      pady=6, padx=10, cursor="hand2")
+        self.version_label.pack(side="left", padx=(4, 4))
+        self.version_label.bind("<Button-1>", lambda _e: self.open_settings())
         # Volume slider only when an audio backend exists (PipeWire/wpctl or
         # ALSA/amixer). In the minimal VM neither may be present — hide it
         # rather than show a dead control. The host always has wpctl, so this
@@ -1000,6 +1258,14 @@ class Dashboard:
                       bg="#155e75", fg=INK, activebackground="#0e7490", activeforeground=INK,
                       relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
                       cursor="hand2").pack(side="right", padx=4, pady=4)
+        # System Update (pacman) — separate, heavier action; only shown on the
+        # real OS where the helper exists, so there's never a dead button (Q11/Q46).
+        if shutil.which("ai-os-system-update") or os.path.exists("/usr/local/bin/ai-os-system-update"):
+            tk.Button(footer, text="⟳ System Update",
+                      command=lambda: self.open_setup_script("System Update", "/usr/local/bin/ai-os-system-update"),
+                      bg="#3f3f46", fg=INK, activebackground="#52525b", activeforeground=INK,
+                      relief="raised", bd=2, font=(FONT, 10, "bold"), padx=10, pady=4,
+                      cursor="hand2").pack(side="right", padx=4, pady=4)
 
     def _wifi_tick(self):
         text, color = wifi_indicator()
@@ -1007,6 +1273,14 @@ class Dashboard:
             self.wifi_status.set(text)
         if hasattr(self, "wifi_label"):
             self.wifi_label.configure(fg=color)
+        # Re-check for updates when connectivity returns (Q9/Q34): a fresh boot is
+        # often still offline at the initial 3s check. Fire only on a real
+        # offline->online transition, and not if we already know one's available.
+        online = not text.startswith(("No Wi-Fi", "No network", "Wi-Fi …"))
+        prev = getattr(self, "_wifi_was_online", None)
+        if online and prev is False and not getattr(self, "update_available", False):
+            threading.Thread(target=self._update_check_worker, daemon=True).start()
+        self._wifi_was_online = online
         self.root.after(6000, self._wifi_tick)
 
     def _resource_tick(self):
@@ -1403,6 +1677,7 @@ class Dashboard:
             ("internet_check", "Internet Check", lambda: self.open_setup_script("Internet Check", "/usr/local/bin/ai-os-internet-check"), True),
             ("todo_list", "To-Do List", self.open_eisenhower, False),
             ("update_os", "Update OS", lambda: self.open_setup_script("Update OS", "/usr/local/bin/ai-os-update"), True),
+            ("settings", "Settings", self.open_settings, True),
             ("training_qa_report", "Training Data QA Report", self.open_training_qa_report, True),
             ("local_logs", "Local Logs", self.open_logs, True),
         ]
