@@ -1,0 +1,95 @@
+name: Build release ISO
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version tag, e.g. v1.1.0
+        required: true
+        type: string
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-release-iso:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            version="${GITHUB_REF_NAME}"
+          else
+            version="${{ inputs.version }}"
+          fi
+          case "$version" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "version must look like vX.Y.Z, got: $version" >&2; exit 1 ;;
+          esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Building $version"
+
+      - name: Build ISO inside Arch Linux container
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$PWD/out" "$PWD/work"
+          docker run --rm --privileged \
+            -v "$PWD:/repo" \
+            -v "$PWD/out:/out" \
+            -v "$PWD/work:/work" \
+            archlinux:latest \
+            bash -lc 'set -euo pipefail
+              pacman -Sy --noconfirm archlinux-keyring
+              pacman -Syu --noconfirm archiso git
+              cd /repo
+              ./build.sh --work /work --out /out
+            '
+
+      - name: Rename ISO and write checksums
+        id: assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          version='${{ steps.version.outputs.version }}'
+          iso="$(find out -maxdepth 1 -type f -name '*.iso' | sort | tail -n 1)"
+          test -n "$iso"
+          final="out/ascended-barron-groundtruth-os-${version}-x86_64.iso"
+          mv "$iso" "$final"
+          (cd out && sha256sum "$(basename "$final")" > SHA256SUMS)
+          echo "iso=$final" >> "$GITHUB_OUTPUT"
+          echo "checksum=out/SHA256SUMS" >> "$GITHUB_OUTPUT"
+          ls -lh out
+          cat out/SHA256SUMS
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ascended-barron-groundtruth-os-${{ steps.version.outputs.version }}
+          path: |
+            ${{ steps.assets.outputs.iso }}
+            ${{ steps.assets.outputs.checksum }}
+          if-no-files-found: error
+
+      - name: Publish GitHub release for tag builds
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: GroundTruth OS ${{ steps.version.outputs.version }}
+          body_path: .github/releases/v1.1.0.md
+          files: |
+            ${{ steps.assets.outputs.iso }}
+            ${{ steps.assets.outputs.checksum }}
