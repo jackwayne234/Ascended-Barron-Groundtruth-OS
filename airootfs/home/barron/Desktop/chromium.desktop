@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Chromium
+Comment=Web browser
+Exec=ai-os-browser
+Icon=chromium
+Terminal=false
+Categories=Network;WebBrowser;
