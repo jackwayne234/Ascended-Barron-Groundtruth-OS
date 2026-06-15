@@ -4,7 +4,7 @@
 # this, the "Update OS" button takes over and you never need this again. (Q22)
 #
 # Usage (on the old install):
-#   curl -fsSL https://raw.githubusercontent.com/jackwayne234/Ascended-Barron-Groundtruth-OS/main/groundtruth-os/bootstrap-updater.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/jackwayne234/Ascended-Barron-Groundtruth-OS/main/bootstrap-updater.sh | bash
 #
 # Prefer not to pipe to bash? The exact steps are below — run them by hand.
 set -euo pipefail
@@ -20,7 +20,7 @@ command -v git >/dev/null 2>&1 || { echo "git is required."; exit 1; }
 echo "Downloading the latest app code..."
 git clone --depth 1 "$REPO_URL" "$TMP/repo" -q
 
-SRC="$TMP/repo/groundtruth-os/airootfs"
+SRC="$TMP/repo/airootfs"
 echo "Installing the updater..."
 sudo install -m755 "$SRC/usr/local/bin/ai-os-update"    /usr/local/bin/
 sudo install -m755 "$SRC/usr/local/bin/ai-os-rollback"  /usr/local/bin/ 2>/dev/null || true

@@ -30,6 +30,8 @@ can see your version and undo an update.
   dashboard directly (no black-screen risk).
 - The update check now compares **release versions** (not branch commits); it can
   be turned off in Settings.
+- The dashboard no longer surfaces **Install to disk** as a casual button; the
+  installer remains available as an advanced terminal command.
 
 ## v1.0.2 — 2026-06-15
 

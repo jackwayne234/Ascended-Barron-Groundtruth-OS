@@ -34,16 +34,6 @@ the OS improves itself through its own workflow — a self-hosting AI loop.
 > backups), not your only machine. The live USB is fresh every boot, so a reboot
 > is a natural undo if the AI breaks something.
 
-## Screenshots
-
-<!-- C15: real screenshots + GIF captured on the clean build go here -->
-| Home | Eisenhower matrix | Work with AI |
-| --- | --- | --- |
-| _`docs/images/home.png` (coming)_ | _`docs/images/matrix.png` (coming)_ | _`docs/images/work-with-ai.gif` (coming)_ |
-
-A short GIF of the full **create task → Work with AI → folder + `ground-truth.md`
-→ terminal** loop will live at `docs/images/work-with-ai.gif`.
-
 ## Bring your own AI
 
 No AI is bundled — it's a **true blank slate**. When you open a project terminal
@@ -75,8 +65,10 @@ planning, decisions, steps, and progress.
 2. **Verify** it with the published `SHA256SUMS` (see the
    [Getting Started guide](docs/GETTING-STARTED.md)).
 3. **Flash** it to a USB stick (Rufus, balenaEtcher, or `dd`).
-4. **Boot** it — it comes up live so you can try it instantly. To keep it, use the
-   **💾 Install to disk** button.
+4. **Boot** it — it comes up live so you can try it instantly. In the current
+   build the disk installer is still included, but the dashboard no longer
+   surfaces it as a casual button; treat install-to-disk as an advanced,
+   destructive action.
 
 Full step-by-step instructions (including BIOS/boot keys and Secure Boot) are in
 the **[Getting Started guide](docs/GETTING-STARTED.md)**.
@@ -106,16 +98,17 @@ From **v1.1.0** the update system also:
 These predate the updater. Add it once and the **Update OS** button takes over:
 
 ```
-curl -fsSL https://raw.githubusercontent.com/jackwayne234/Ascended-Barron-Groundtruth-OS/main/groundtruth-os/bootstrap-updater.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jackwayne234/Ascended-Barron-Groundtruth-OS/main/bootstrap-updater.sh | bash
 ```
 
 Prefer not to pipe to a shell? Do the same thing by hand:
 
 ```
-git clone --depth 1 https://github.com/jackwayne234/Ascended-Barron-Groundtruth-OS.git /tmp/abgt \
-  && sudo install -m755 /tmp/abgt/groundtruth-os/airootfs/usr/local/bin/ai-os-update /usr/local/bin/ \
-  && sudo install -d /usr/local/share/ai-os \
-  && ai-os-update
+git clone --depth 1 https://github.com/jackwayne234/Ascended-Barron-Groundtruth-OS.git /tmp/abgt
+sudo install -m755 /tmp/abgt/airootfs/usr/local/bin/ai-os-update /usr/local/bin/
+sudo install -m755 /tmp/abgt/airootfs/usr/local/bin/ai-os-rollback /usr/local/bin/ 2>/dev/null || true
+sudo install -d /usr/local/share/ai-os
+ai-os-update
 ```
 
 ## Security model — please read

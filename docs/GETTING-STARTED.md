@@ -122,18 +122,26 @@ No AI is bundled — you choose. In the project terminal:
 - Follow that tool's own install instructions, start it **in the project folder**,
   and point it at `ground-truth.md`.
 
-## 8. Keep it: install to disk (optional)
+## 8. Keep it: install to disk (advanced)
 
-If you like it and want it to stay:
+The live USB is the safest way to try GroundTruth OS. In the current build the
+disk installer is still included, but the dashboard no longer presents it as a
+casual button.
 
-1. Click **💾 Install to disk** on the dashboard.
-2. A terminal opens and lists your disks. It **refuses** the USB you booted from
-   and any disk currently in use.
-3. Type the **exact name** of the disk to install onto, then type **`ERASE`** to
-   confirm. **This erases that entire disk.**
-4. When it finishes, shut down, remove the USB, and power on.
+Installing to disk is advanced and destructive: it erases the whole target disk.
+Only do it on a spare machine after backing up anything important.
 
-The installed system also boots straight to the dashboard — **no login, no
+If you intentionally want to install it, open a terminal and run:
+
+```sh
+sudo ai-os-install-to-disk
+```
+
+The installer lists your disks, refuses the USB you booted from and any disk
+currently in use, then asks you to type the exact target disk name and `ERASE`
+before it writes anything.
+
+The installed system also boots straight to the dashboard — **no login and no
 password.** See the **Security model** section of the [README](../README.md): you
 can add a password or encryption yourself if you want them.
 
@@ -148,8 +156,9 @@ can add a password or encryption yourself if you want them.
   come up automatically.
 - **"Weather unavailable":** you're offline, or the weather component isn't
   reachable — harmless, the rest still works.
-- **Reboot resets everything:** that's expected in live mode. Install to disk to
-  keep your work.
+- **Reboot resets everything:** that's expected in live mode. To keep work, save
+  it somewhere external or use the advanced install-to-disk flow on a spare
+  machine.
 
 This is a personal project shared as-is — **no support is promised**, but it's
 yours to fork and change however you like.
