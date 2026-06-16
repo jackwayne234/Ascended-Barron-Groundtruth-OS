@@ -4,8 +4,8 @@ A complete, beginner-friendly walkthrough: from downloading the file to using th
 AI workflow. No Linux experience needed.
 
 > ⚠️ **This is experimental software.** Please try it on a **spare computer or a
-> virtual machine first** — not on your only/main machine. Installing to a disk
-> **erases that disk.**
+> virtual machine first** — not on your only/main machine. Installing to an external
+> Hard Drive erases that external hard drive.
 
 ---
 
@@ -13,11 +13,14 @@ AI workflow. No Linux experience needed.
 
 1. Go to the **[Releases page](../../releases)**.
 2. Download the latest `ascended-barron-groundtruth-os-vX.Y.Z-x86_64.iso`.
-3. Download the matching **`SHA256SUMS`** file from the same release.
+
+   ## Optional additional security
+  
+Download the matching **`SHA256SUMS`** file from the same release.
 
 An "ISO" is a single file containing the whole operating system.
 
-## 2. Verify your download (recommended)
+Verify your download (recommended)
 
 This checks the file downloaded correctly and wasn't tampered with.
 
@@ -32,6 +35,8 @@ Compare the printed hash to the line in `SHA256SUMS`. They must match.
 sha256sum -c SHA256SUMS
 ```
 You want to see `OK` next to the ISO name.
+
+## Resuming regular installation instruction here
 
 ## 3. Put it on a USB stick
 
@@ -75,14 +80,24 @@ Pick one tool:
   set it to **Disabled**, save, and try again.
 - Make sure "USB boot" is enabled and try both UEFI and Legacy/CSM modes.
 
-## 5. First boot — the live system
+## 5. First boot
 
-GroundTruth OS starts straight into the **dashboard** — there's **no login and no
-password**. You're trying it live; in live mode nothing is saved between reboots.
+ABG-OS starts straight into the **dashboard** — there's **no login and no
+password**. It's a persistent OS on an external thumbdrive. When you're done
+you can shutdown and remove the disk and store it in a safe location, or take
+it with you to use in another computer without having to carry around a whole
+other computer.
 
 Take a look around:
-- The **weather ticker**, clock, and battery/volume indicators.
-- The three **sample projects** (see below).
+- The **weather ticker**, clock, and battery/volume indicators. I love the weather
+  channel. This is a nod to the 90's weather channel. When it was good.
+- Click on the sample projects to take a look. Or start a task, select it, open in
+  terminal button, install your desired AI (local LLM or cloud)
+  **If you use a cloud AI provider, the cloud provider will still do their normal
+  logging that they do. But now, your local logs will fill up as you work too so
+  you can train or fine tune your OWN LLM that compliments how YOU work. Choose a
+  local LLM if you don't want a cloud provider to harvets your information as you
+  work.**
 - **Chromium** and a **terminal** are available.
 
 > **Connecting to the internet:** use the Wi-Fi helper if you're not already
@@ -93,20 +108,25 @@ Take a look around:
 
 1. **Create a task** — give your project a name (e.g. *"Build a simple personal
    webpage"*).
-2. **Select the task**, then click **Work with AI**.
+2. **Select the task**, then click **Open Project Terminal**.
 3. The system **creates a project folder**, drops in a **`ground-truth.md`** named
    for the task, and **opens a terminal inside that folder**. A banner explains
    what happened.
 4. **Install your AI** (next section), start it in that folder, and tell it:
    > "Read `ground-truth.md` and follow it."
 
-`ground-truth.md` is the project's living plan and memory — the AI reads it,
-plans, asks questions, and records decisions and progress there.
+`ground-truth.md` is the project's scaffolding for the AI — the AI reads it,
+Asks your desired outcome of the project, asks 25 questions about the project
+mulitple choice with it's recommendation for each question one at a time, and
+records decisions and progress there. Then the AI will reference the ground-truth.md
+file while working on the project. It divides projects into chunks with their own
+files and logs appropriate information in each chunk of the project. AI works best
+an organized scaffolding. That's what this operating system does automatically,
+and creates training data stored locally as you work. You don't have to mess with
+it. 
 
 ### The sample projects
 
-- **Plan a 3-day weekend trip** — *completed* example. Open its `ground-truth.md`
-  to see what a finished plan looks like.
 - **Build a simple personal webpage** — *fresh* task. Click **Work with AI** to
   watch the folder and `ground-truth.md` get created live.
 - **Add a feature to my dashboard** — the **self-modification** demo: the OS
@@ -122,23 +142,6 @@ No AI is bundled — you choose. In the project terminal:
 - Follow that tool's own install instructions, start it **in the project folder**,
   and point it at `ground-truth.md`.
 
-## 8. Keep it: install to external drive (advanced)
-
-The live USB is the safest way to try GroundTruth OS. If you want it to keep
-your changes between boots, put it on a removable external drive (USB SSD,
-portable HDD, or similar). The dashboard does not expose a button for this;
-use the guarded terminal installer when you intentionally want to keep it.
-
-Installing to an external drive is advanced and destructive: it erases the whole
-target drive. Only do it on a spare machine after backing up anything important.
-
-If you intentionally want to install it, run `sudo ai-os-install-to-disk` from
-a terminal.
-
-The installer lists your disks, refuses the USB you booted from, refuses
-non-external/internal disks, and refuses any disk currently in use. It then asks
-you to type the exact target disk name and `ERASE` before it writes anything.
-
 The installed system also boots straight to the dashboard — **no login and no
 password.** See the **Security model** section of the [README](../README.md): you
 can add a password or encryption yourself if you want them.
@@ -152,11 +155,10 @@ can add a password or encryption yourself if you want them.
   experimental release verified on limited hardware.
 - **No Wi-Fi:** open the Wi-Fi helper and select your network. Wired connections
   come up automatically.
+##Create a task to modify or troubleshoot your system. It's completely yours. 
 - **"Weather unavailable":** you're offline, or the weather component isn't
-  reachable — harmless, the rest still works.
-- **Reboot resets everything:** that's expected in live mode. To keep work, save
-  it somewhere external or use the advanced external-drive install flow on a spare
-  machine.
+  reachable — harmless, the rest still works. Or, create a task and use AI to fix
+  it.
 
 This is a personal project shared as-is — **no support is promised**, but it's
 yours to fork and change however you like.
