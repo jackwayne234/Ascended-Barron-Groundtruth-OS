@@ -97,7 +97,7 @@ Take a look around:
   **If you use a cloud AI provider, the cloud provider will still do their normal
   logging that they do. But now, your local logs will fill up as you work too so
   you can train or fine tune your OWN LLM that compliments how YOU work. Choose a
-  local LLM if you don't want a cloud provider to harvets your information as you
+  local LLM if you don't want a cloud provider to harvest your information as you
   work.**
   
 - **Chromium** and a **terminal** are available.
