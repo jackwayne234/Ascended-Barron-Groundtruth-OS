@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -95,7 +95,7 @@ jobs:
           echo "Using release notes: $notes"
 
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ascended-barron-groundtruth-os-${{ steps.version.outputs.version }}
           path: |
@@ -105,7 +105,7 @@ jobs:
 
       - name: Publish GitHub release for tag builds
         if: github.ref_type == 'tag'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.version }}
           name: GroundTruth OS ${{ steps.version.outputs.version }}

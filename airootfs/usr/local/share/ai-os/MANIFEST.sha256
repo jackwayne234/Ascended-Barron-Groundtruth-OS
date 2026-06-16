@@ -14,12 +14,13 @@ e1825239b8d6352f1d669853b73a2696e4ad7c2c967214119bb657b945e42deb  usr/local/bin/
 ed530c406bdb112cf6ded0271d28271c5d0ab17f8697e3698ebbc651e61a30ad  usr/local/lib/ai-os/ai_big_log/training_export.py
 1f01494230c0e5db6802b659e40724a1d6765ed3339fa582e421cfd7bd2bee79  usr/local/lib/ai-os/ai_big_log/training_qa.py
 f65c6f1e5730b92e82cc653cf8b38f6e36dcf8c3ecae2784b44b3b0263aa150e  usr/local/share/ai-os/CHANGELOG.md
-223f784453b4a002a90745cfcd7beb3c448e8a949216a49be3a9324d79b5e141  usr/local/share/ai-os/ai-os-dashboard.py
+f57fc516c735c95263623fd2433766b32ed72e3e907a1f3dd7055b5f70cb8f82  usr/local/share/ai-os/ai-os-dashboard.py
 9916689a0b3e19772a0be702a738fae4d31edea6b311f896d354f1cb3d46c49a  usr/local/share/ai-os/dashboard/__init__.py
 bd95cb438463c0b6dab1b8ea8d1befa6030c00f9e5394511978334ff469ed66e  usr/local/share/ai-os/dashboard/app_embed.py
 46e2152a44684d466b3561e1fc074762ba6035b09788c02a187439f56f85204f  usr/local/share/ai-os/dashboard/app_grid_actions.py
 2a9b595666dab831cc5218fa525f91601cdbd33248619af629cc1c36a65b411d  usr/local/share/ai-os/dashboard/app_grid_ui.py
 13a39a95c0a7d7237910c8cd334eae363c14814ee500078209738e6c7eed8161  usr/local/share/ai-os/dashboard/apps.py
+fba9bc11659d3a6f71ffd969eb754ebfbd708a236374c45a99085ca8e9ef91bc  usr/local/share/ai-os/dashboard/background_layer.py
 5ea64884d24c4ba528538f2166194da8a40227eca6da44cd3b9ab9c064471a62  usr/local/share/ai-os/dashboard/connectivity.py
 2a6e828664e88cc165d7e7126c2f97689942e2f5506f1c5a402027b1da6f3c97  usr/local/share/ai-os/dashboard/constants.py
 6958fa23b5294a54d5eb5c592226a01d3e0e4ad64138213af463f49d33efe3ee  usr/local/share/ai-os/dashboard/eisenhower_actions.py

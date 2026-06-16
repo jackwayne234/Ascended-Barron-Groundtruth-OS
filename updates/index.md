@@ -57,6 +57,11 @@ Status: done
 File: `updates/update10.md`
 Purpose: capture the release/repo improvements that become easier after dashboard modularization is underway.
 
+## Update 11 — Post-release maintenance after v1.1.3
+Status: done
+File: `updates/update11.md`
+Purpose: capture the first conservative maintenance pass after the v1.1.3 release and live-laptop acceptance.
+
 ## Suggested order for future sessions
 1. all currently logged update tracks are complete
 2. start a new track based on what the real product needs next
