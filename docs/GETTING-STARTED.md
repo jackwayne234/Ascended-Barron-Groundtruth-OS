@@ -38,7 +38,7 @@ You want to see `OK` next to the ISO name.
 
 ## Resuming regular installation instruction here
 
-## 3. Put it on a USB stick
+## 2. Put it on a USB stick
 
 You need a USB stick of **4 GB or larger**. **This erases the USB stick**, so use
 an empty one.
@@ -56,7 +56,7 @@ Pick one tool:
   Replace `/dev/sdX` with your USB device. **Getting this wrong can erase the
   wrong drive** — list devices with `lsblk` first.
 
-## 4. Boot from the USB stick
+## 3. Boot from the USB stick
 
 1. Plug the USB into the target computer.
 2. Turn it on and open the **boot menu** by tapping a key right away. Common keys:
@@ -80,7 +80,7 @@ Pick one tool:
   set it to **Disabled**, save, and try again.
 - Make sure "USB boot" is enabled and try both UEFI and Legacy/CSM modes.
 
-## 5. First boot
+## 4. First boot
 
 ABG-OS starts straight into the **dashboard** — there's **no login and no
 password**. It's a persistent OS on an external thumbdrive. When you're done
@@ -104,7 +104,7 @@ Take a look around:
 > online. Some features (browser, weather) need a connection; the AI workflow
 > itself works offline once you've installed a local AI.
 
-## 6. Use the workflow (the heart of GroundTruth OS)
+## 5. Use the workflow (the heart of GroundTruth OS)
 
 1. **Create a task** — give your project a name (e.g. *"Build a simple personal
    webpage"*).
@@ -133,7 +133,7 @@ it.
   improving itself through its own workflow. (Do this on an installed copy or with
   backups.)
 
-## 7. Install an AI CLI
+## 6. Install an AI CLI
 
 No AI is bundled — you choose. In the project terminal:
 
@@ -155,7 +155,9 @@ can add a password or encryption yourself if you want them.
   experimental release verified on limited hardware.
 - **No Wi-Fi:** open the Wi-Fi helper and select your network. Wired connections
   come up automatically.
-##Create a task to modify or troubleshoot your system. It's completely yours. 
+  
+## Create a task to modify or troubleshoot your system. It's completely yours
+
 - **"Weather unavailable":** you're offline, or the weather component isn't
   reachable — harmless, the rest still works. Or, create a task and use AI to fix
   it.
