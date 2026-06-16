@@ -4,6 +4,13 @@ All notable changes to Ascended Barron: GroundTruth OS.
 
 This project uses [semantic versioning](https://semver.org/). Releases are published on the [Releases page](../../releases).
 
+## v1.1.4 — 2026-06-16
+
+### Changed
+- Published the automatic local logging documentation pass so the README and Getting Started guide now explain local-only logging, JSONL records, best-effort redaction, and user responsibility for sensitive-data review more clearly.
+- Replaced the old personal-webpage sample wording with the daily-journal app idea and kept it documented instead of preinstalled as shipped sample content.
+- Removed the old personal-webpage task from the shipped sample task list.
+
 ## v1.1.3 — 2026-06-16
 
 ### Fixed

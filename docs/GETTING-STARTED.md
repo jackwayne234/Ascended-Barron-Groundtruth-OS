@@ -121,19 +121,32 @@ That file is the starting point for the project. It gives the AI a place to read
 
 ## 7. Understand the logging model
 
-GroundTruth OS writes its own workflow log to local files on your machine.
+GroundTruth OS automatically writes its own workflow log to local files on the system or removable drive you are using.
 
 That logging is part of GroundTruth OS itself. It is separate from any cloud provider you choose to use.
+
+At a high level:
+
+- the OS keeps those files local by default,
+- the OS does not automatically upload them,
+- and if you want to move or copy them somewhere else later, use normal Linux file commands or make your own shortcut.
+
+The main log format is JSONL: one JSON record per line. Depending on what you do, it can include AI message records, dashboard actions, file events, folder metadata, and logger operation/error events.
+
+GroundTruth OS also includes best-effort redaction for some common secret and personal-data patterns before records are appended, but that is not a guarantee. You are still responsible for reviewing and removing sensitive data before using the logs for training, fine-tuning, or sending them to another tool or service.
 
 If you connect to a hosted AI service, that provider may still retain prompts or usage data under its own policies. If you want the whole loop to stay local, use a local model.
 
 ## 8. Sample projects
 
-The release includes a few sample projects so you can see the workflow immediately:
+The release includes a few pieces of sample content so you can see the workflow immediately:
 
 - `Plan a 3-day weekend trip` — a completed example
-- `Build a simple personal webpage` — a fresh task to try live
 - `Add a feature to my dashboard` — the self-modification demo
+
+Example idea you could try next:
+
+- `Build a simple daily journal app` — a useful small app idea, kept as an example in the docs rather than preinstalled as a shipped sample folder
 
 If you try the self-modification path, do it on an installed copy or keep backups. A live boot is easy to discard on reboot. A modified install is not.
 

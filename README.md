@@ -57,25 +57,54 @@ The release includes:
 - Chromium,
 - lxterminal,
 - weather, battery, volume, and network helpers,
-- local workflow logging and export helpers,
+- local workflow logging,
 - sample projects,
-- and a sample training-data export.
+- and a sample training-data format example.
 
-Sample projects currently included:
+Sample content currently included:
 
 - `Plan a 3-day weekend trip` - a completed example
-- `Build a simple personal webpage` - a fresh task to try live
 - `Add a feature to my dashboard` - the self-modification demo
 
-## Local logging
+Example project idea you could try:
 
-GroundTruth OS writes its own workflow log to local files on your machine.
+- `Build a simple daily journal app` - a useful small app idea that could later become a dashboard app button, but it is not preinstalled as a shipped sample folder
 
-That log is meant to capture your work session in a training-friendly format that you can inspect, keep, export, or use later however you want. The OS does not upload that data.
+## Automatic local logging
+
+GroundTruth OS automatically writes its own workflow log to local files on the system or removable drive you are using.
+
+This logging is local-first:
+
+- the OS stores the files locally,
+- the OS does not automatically upload them,
+- and if you want to move or copy them somewhere else for training or analysis, use normal Linux file commands or make your own shortcut.
 
 This is separate from any cloud AI provider you choose to use. If you connect to a hosted model, that provider may still retain prompts or usage data under its own policies. GroundTruth OS cannot change that.
 
 If you want the whole loop to stay local, run a local model.
+
+### What gets stored
+
+The main logging format is JSONL: one JSON record per line.
+
+Depending on what you do, the local log can include records for things like:
+
+- AI messages,
+- dashboard actions,
+- file events,
+- folder metadata,
+- and logger operation/error events.
+
+The repo also includes a small sample training-data-format example so you can see the shape of a downstream export without needing a built-in export workflow in the dashboard.
+
+### Safety and responsibility
+
+GroundTruth OS includes best-effort redaction for some common secret and personal-data patterns before records are appended.
+
+That is a convenience safeguard, not a guarantee.
+
+You are responsible for reviewing and removing sensitive data before using these logs for training, fine-tuning, or sharing them with another tool or service.
 
 ## How to boot it
 

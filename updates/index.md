@@ -62,6 +62,16 @@ Status: done
 File: `updates/update11.md`
 Purpose: capture the first conservative maintenance pass after the v1.1.3 release and live-laptop acceptance.
 
+## Update 12 — Automatic local logging documentation and wording alignment
+Status: done
+File: `updates/update12.md`
+Purpose: document the automatic local logging system more clearly and honestly, including local-only behavior, JSONL format, and user responsibility for sensitive-data review.
+
+## Update 13 — Shipped sample-project alignment toward useful app ideas
+Status: done
+File: `updates/update13.md`
+Purpose: replace the weaker webpage sample with a more broadly useful daily-journal app idea and keep it documented rather than preinstalled.
+
 ## Suggested order for future sessions
 1. all currently logged update tracks are complete
 2. start a new track based on what the real product needs next

@@ -54,8 +54,8 @@ autologin/user/session files replace releng's root-autologin.
 - **NetworkManager** enabled at boot; releng's systemd-networkd/resolved and
   sshd are disabled (no auto-SSH on a public image).
 - **Hostname** `groundtruth-os`, locale `en_US.UTF-8`, timezone UTC.
-- The dashboard, helper CLIs, the `ai_big_log` logging/export library, and the
-  three sample projects + sample export, all under `/home/barron`.
+- The dashboard, helper CLIs, the `ai_big_log` logging/export library, the
+  shipped sample content under `/home/barron`, and the sample export example.
 
 ## Boot compatibility
 

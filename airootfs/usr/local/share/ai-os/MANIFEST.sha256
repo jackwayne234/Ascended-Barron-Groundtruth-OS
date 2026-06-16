@@ -13,7 +13,7 @@ e1825239b8d6352f1d669853b73a2696e4ad7c2c967214119bb657b945e42deb  usr/local/bin/
 62de8985f78fc6c9f68c1498e2e6da25a6f64bd6be3a3728cdd749078ceef140  usr/local/lib/ai-os/ai_big_log/logger.py
 ed530c406bdb112cf6ded0271d28271c5d0ab17f8697e3698ebbc651e61a30ad  usr/local/lib/ai-os/ai_big_log/training_export.py
 1f01494230c0e5db6802b659e40724a1d6765ed3339fa582e421cfd7bd2bee79  usr/local/lib/ai-os/ai_big_log/training_qa.py
-f65c6f1e5730b92e82cc653cf8b38f6e36dcf8c3ecae2784b44b3b0263aa150e  usr/local/share/ai-os/CHANGELOG.md
+58edd5d2a0774a9178aafef812272020c33cf2a6f8caa391b1aba2881d607e15  usr/local/share/ai-os/CHANGELOG.md
 f57fc516c735c95263623fd2433766b32ed72e3e907a1f3dd7055b5f70cb8f82  usr/local/share/ai-os/ai-os-dashboard.py
 9916689a0b3e19772a0be702a738fae4d31edea6b311f896d354f1cb3d46c49a  usr/local/share/ai-os/dashboard/__init__.py
 bd95cb438463c0b6dab1b8ea8d1befa6030c00f9e5394511978334ff469ed66e  usr/local/share/ai-os/dashboard/app_embed.py
