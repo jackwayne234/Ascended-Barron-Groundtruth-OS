@@ -2,7 +2,7 @@
 
 An Arch-based live environment for AI-assisted work, with local workflow logging built in.
 
-This project is experimental and personal, but it is real and usable. Boot it from removable media, open the dashboard, create a task, and start working with your AI tool of choice. As you work, the system records your workflow to a local training log that stays on your machine.
+This project is experimental and personal, but it is real and usable. Boot it from removable media, open the dashboard, create a task, and start working with your AI tool of choice. As you work, the system records local workflow logging that stays on your machine.
 
 No AI model is bundled. GroundTruth OS gives you the structure, workspace, and local logging. You bring the AI.
 

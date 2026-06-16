@@ -4,10 +4,21 @@ All notable changes to Ascended Barron: GroundTruth OS.
 
 This project uses [semantic versioning](https://semver.org/). Releases are published on the [Releases page](../../releases).
 
+## v1.1.3 — 2026-06-16
+
+### Fixed
+- Restored `Open Project Terminal` after the dashboard modularization split so selecting a task opens a visible terminal window again.
+- Improved the live dashboard background/window behavior by removing the forced fullscreen window-manager state and reducing dependence on `xdotool`.
+
+### Changed
+- The footer resource label now shows free storage in gigabytes instead of only a storage percentage.
+- Added a module-aware dashboard integrity guard and CI workflow so launcher, dashboard modules, and smoke QA are verified together.
+- Added internal dashboard-structure and release-process docs for the post-modularization layout.
+
 ## v1.1.2 — 2026-06-15
 
 ### Changed
-- Removed the dashboard footer button for the external-drive install path.
+- Removed the dashboard footer button for the external-drive setup path.
 - Kept the advanced terminal installer available as `sudo ai-os-install-to-disk`.
 - Updated the public docs so the README, Getting Started guide, and release notes match the current UI and removable-media workflow.
 

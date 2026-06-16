@@ -137,7 +137,7 @@ The release includes a few sample projects so you can see the workflow immediate
 
 If you try the self-modification path, do it on an installed copy or keep backups. A live boot is easy to discard on reboot. A modified install is not.
 
-## 9. Optional external-drive install path
+## 9. Optional external-drive setup path
 
 The main experience is the live boot from removable media.
 

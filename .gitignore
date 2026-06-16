@@ -51,6 +51,7 @@ Thumbs.db
 # --- Logs / scratch ---
 *.log
 logs/
+qa-output/
 tmp/
 .cache/
 

@@ -1,0 +1,34 @@
+name: Check release surfaces
+
+on:
+  pull_request:
+    paths:
+      - 'README.md'
+      - 'docs/GETTING-STARTED.md'
+      - 'CHANGELOG.md'
+      - 'airootfs/usr/local/share/ai-os/CHANGELOG.md'
+      - '.github/releases/**'
+      - 'tools/check-release-surfaces.sh'
+      - '.github/workflows/check-release-surfaces.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'README.md'
+      - 'docs/GETTING-STARTED.md'
+      - 'CHANGELOG.md'
+      - 'airootfs/usr/local/share/ai-os/CHANGELOG.md'
+      - '.github/releases/**'
+      - 'tools/check-release-surfaces.sh'
+      - '.github/workflows/check-release-surfaces.yml'
+
+jobs:
+  check-release-surfaces:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify release-story surfaces stay clean
+        shell: bash
+        run: bash tools/check-release-surfaces.sh

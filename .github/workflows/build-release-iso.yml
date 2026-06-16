@@ -85,7 +85,11 @@ jobs:
           version='${{ steps.version.outputs.version }}'
           notes=".github/releases/${version}.md"
           if [ ! -f "$notes" ]; then
-            notes=".github/releases/v1.1.0.md"
+            if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+              echo "Missing release notes file: $notes" >&2
+              exit 1
+            fi
+            echo "Non-tag build without matching release notes file: $notes" >&2
           fi
           echo "path=$notes" >> "$GITHUB_OUTPUT"
           echo "Using release notes: $notes"

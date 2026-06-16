@@ -1,0 +1,34 @@
+name: Check manifest freshness
+
+on:
+  pull_request:
+    paths:
+      - 'airootfs/usr/local/share/ai-os/**'
+      - 'airootfs/usr/local/lib/ai-os/**'
+      - 'airootfs/usr/local/bin/**'
+      - 'tools/gen-manifest.sh'
+      - 'tools/check-manifest.sh'
+      - '.github/workflows/check-manifest.yml'
+      - 'build.sh'
+  push:
+    branches:
+      - main
+    paths:
+      - 'airootfs/usr/local/share/ai-os/**'
+      - 'airootfs/usr/local/lib/ai-os/**'
+      - 'airootfs/usr/local/bin/**'
+      - 'tools/gen-manifest.sh'
+      - 'tools/check-manifest.sh'
+      - '.github/workflows/check-manifest.yml'
+      - 'build.sh'
+
+jobs:
+  check-manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify committed manifest is current
+        shell: bash
+        run: bash tools/check-manifest.sh

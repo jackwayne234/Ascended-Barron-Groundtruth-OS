@@ -1,0 +1,37 @@
+name: Check dashboard integrity
+
+on:
+  pull_request:
+    paths:
+      - 'airootfs/usr/local/share/ai-os/ai-os-dashboard.py'
+      - 'airootfs/usr/local/share/ai-os/dashboard/**'
+      - 'qa/dashboard_smoke.py'
+      - 'tools/check-dashboard-integrity.sh'
+      - '.github/workflows/check-dashboard-integrity.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'airootfs/usr/local/share/ai-os/ai-os-dashboard.py'
+      - 'airootfs/usr/local/share/ai-os/dashboard/**'
+      - 'qa/dashboard_smoke.py'
+      - 'tools/check-dashboard-integrity.sh'
+      - '.github/workflows/check-dashboard-integrity.yml'
+
+jobs:
+  check-dashboard-integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install dashboard smoke dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y xvfb imagemagick python3-tk
+
+      - name: Verify modular dashboard still compiles and boots in smoke QA
+        shell: bash
+        run: bash tools/check-dashboard-integrity.sh
