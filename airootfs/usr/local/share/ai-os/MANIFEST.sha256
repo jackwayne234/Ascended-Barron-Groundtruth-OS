@@ -1,6 +1,6 @@
 0d6172918f0182f2f63a9236039eec9b69ed63f3a5a48e5354a30e7228d4ed28  usr/local/bin/ai-os-browser
 30e743784e86757b07450e1d45923de6a3456ea461b1a23b3525098ca763c2d0  usr/local/bin/ai-os-firstboot-info
-12e28567b756ea8fe3699709e93c576e7a7c1508ff7968a58eb01aa9f1e6e7bb  usr/local/bin/ai-os-install-to-disk
+9d76be55585497a3d3d9357017f351976c3ef3d20372ef2b9d5bcdd89a246667  usr/local/bin/ai-os-install-to-disk
 2d6cb997fed5c7da77f4ec2eee0ab69bf42581f2b19e8e0c16ace1cd309bb995  usr/local/bin/ai-os-internet-check
 4ddc8db199fe88b48980f8711bdbd2fae4d6452cb87514c26654bb0b3d1b2982  usr/local/bin/ai-os-open-terminal
 da07415a94a26f594f04e3d8ed3d16e95678446689a529ae77110bd839ac417f  usr/local/bin/ai-os-rollback
@@ -13,5 +13,5 @@ e1825239b8d6352f1d669853b73a2696e4ad7c2c967214119bb657b945e42deb  usr/local/bin/
 62de8985f78fc6c9f68c1498e2e6da25a6f64bd6be3a3728cdd749078ceef140  usr/local/lib/ai-os/ai_big_log/logger.py
 ed530c406bdb112cf6ded0271d28271c5d0ab17f8697e3698ebbc651e61a30ad  usr/local/lib/ai-os/ai_big_log/training_export.py
 1f01494230c0e5db6802b659e40724a1d6765ed3339fa582e421cfd7bd2bee79  usr/local/lib/ai-os/ai_big_log/training_qa.py
-ee25455e901c53a5dc975be15607dc0ed96cd14f23c8df6dd059969cac1a00cd  usr/local/share/ai-os/CHANGELOG.md
-eb0dc1cd10e8cf107c2a6a7c1d7100b9479c4406c44afe84c08dcd8ee18a749f  usr/local/share/ai-os/ai-os-dashboard.py
+a2d5fe2f81c08509ef94280ad6ae44f0d4e70278674cbae28871e6c61817cb24  usr/local/share/ai-os/CHANGELOG.md
+7763db87f860658a2e470638b815a39440761fe7a97f96760ad0da1302d5c3e0  usr/local/share/ai-os/ai-os-dashboard.py

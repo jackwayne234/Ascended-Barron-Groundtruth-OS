@@ -2,16 +2,16 @@
 
 > SAMPLE PROJECT (C) — the headline trick: **GroundTruth OS can improve
 > itself.** Because the dashboard is just code on this machine, "add a feature
-> to it" is a normal project: make a task, press **Work with AI**, and the AI
-> edits the live system through the same workflow you use for anything else.
+> to it" is a normal project: make a task, open its project terminal, and let
+> the AI work through the same workflow you use for anything else.
 > This sample is teed up for you — read it, then continue it with your own AI.
 
 > ⚠️ **SAFETY NOTE — read before you let an AI change a running system.**
 > Modifying the OS you are currently using can break it. Do self-modification
-> on an **installed copy** (not your only computer), and keep a backup. The
-> live USB is a natural safety net: it is **fresh every boot**, so if a change
-> breaks something, just reboot and you are back to a clean slate. Prefer
-> testing changes before making them permanent.
+> on an **installed copy** (not your only computer), and keep a backup. A live
+> boot from removable media is a natural safety net because it is **fresh every
+> boot**. If a change breaks something, reboot and you are back to a clean
+> slate. Prefer testing changes before making them permanent.
 
 ## Purpose of This File
 
@@ -31,10 +31,7 @@ When the AI works in this folder, it should read this file first and:
 
 ## Desired Outcome
 
-**Drafted (confirm with the user).** Add one small, useful feature to the AI OS
-dashboard — for example a live clock in the top bar, or a button that opens a
-chosen folder. The point is to demonstrate the OS improving itself through its
-own task → Work with AI → ground-truth workflow.
+**Drafted (confirm with the user).** Add one small, useful feature to the AI OS dashboard — for example a live clock in the top bar, or a button that opens a chosen folder. The point is to demonstrate the OS improving itself through its own task -> project terminal -> ground-truth workflow.
 
 The dashboard lives at: `/usr/local/share/ai-os/ai-os-dashboard.py`
 (it is a single Python/tkinter file). On an installed system you'd edit it,
@@ -55,19 +52,14 @@ restart the dashboard, and see your change.
 **User answer:** _To be confirmed — the draft above is a starting point._
 **Locked decision:** _Not locked yet._
 
-_(Suggested first planning questions for the AI to ask: Which single feature?
-Where on the dashboard should it appear? Test on an installed copy or a live
-session? Should the change be permanent or just tried this session?)_
+_(Suggested first planning questions for the AI to ask: Which single feature? Where on the dashboard should it appear? Test on an installed copy or a live session? Should the change be permanent or just tried this session?)_
 
 ## Permission to Start
 
-_Not granted yet. The AI should confirm the feature and the plan, honor the
-safety note, then ask: “Do I have your permission to start working from this
-ground truth and chunk plan?”_
+_Not granted yet. The AI should confirm the feature and the plan, honor the safety note, then ask: “Do I have your permission to start working from this ground truth and chunk plan?”_
 
 ## Progress Log
 
 ### 2026-06-14
 - Shipped as a teed-up sample to demonstrate the self-modifying-OS workflow.
-- Desired outcome drafted; planning questions and permission still pending so a
-  new user can drive the rest with their own AI.
+- Desired outcome drafted; planning questions and permission still pending so a new user can drive the rest with their own AI.

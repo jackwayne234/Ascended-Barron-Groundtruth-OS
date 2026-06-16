@@ -1,168 +1,202 @@
 # Getting Started — Ascended Barron: GroundTruth OS
 
-A complete, beginner-friendly walkthrough: from downloading the file to using the
-AI workflow. No Linux experience needed.
+A beginner-friendly walkthrough for downloading the ISO, booting the system, and using the AI workflow.
 
-> ⚠️ **This is experimental software.** Please try it on a **spare computer or a
-> virtual machine first** — not on your only/main machine. Installing to an external
-> Hard Drive erases that external hard drive.
-
----
+> This is experimental software. Use a spare computer if you can. If you write the image to removable media, that media will be erased.
 
 ## 1. Download the ISO
 
-1. Go to the **[Releases page](../../releases)**.
+1. Open the [Releases page](../../releases).
 2. Download the latest `ascended-barron-groundtruth-os-vX.Y.Z-x86_64.iso`.
+3. Download the matching `SHA256SUMS` file from the same release.
 
-   ## Optional additional security
-  
-Download the matching **`SHA256SUMS`** file from the same release.
+An ISO is a single file containing the whole live system.
 
-An "ISO" is a single file containing the whole operating system.
+### Verify the download
 
-Verify your download (recommended)
+Verifying the ISO makes sure the file downloaded correctly and matches the published checksum.
 
-This checks the file downloaded correctly and wasn't tampered with.
+Windows PowerShell:
 
-**Windows (PowerShell):**
 ```powershell
 Get-FileHash .\ascended-barron-groundtruth-os-*.iso -Algorithm SHA256
 ```
-Compare the printed hash to the line in `SHA256SUMS`. They must match.
 
-**macOS / Linux:**
+Compare the printed hash to the matching line in `SHA256SUMS`.
+
+macOS or Linux:
+
 ```sh
 sha256sum -c SHA256SUMS
 ```
-You want to see `OK` next to the ISO name.
 
-## Resuming regular installation instruction here
+You want to see `OK` next to the ISO filename.
 
-## 2. Put it on a USB stick
+## 2. Write it to removable media
 
-You need a USB stick of **4 GB or larger**. **This erases the USB stick**, so use
-an empty one.
+Use a USB stick or external drive with at least 4 GB of space. Writing the ISO will erase that device.
 
-Pick one tool:
+Common options:
 
-- **Rufus** (Windows, easiest): select the ISO, select your USB, click *Start*,
-  accept "Write in DD Image mode" if asked.
-- **balenaEtcher** (Windows/macOS/Linux): *Flash from file* → pick the ISO → pick
-  the USB → *Flash*.
-- **`dd`** (macOS/Linux, advanced — double-check the device name!):
-  ```sh
-  sudo dd if=ascended-barron-groundtruth-os-*.iso of=/dev/sdX bs=4M status=progress conv=fsync
-  ```
-  Replace `/dev/sdX` with your USB device. **Getting this wrong can erase the
-  wrong drive** — list devices with `lsblk` first.
+- Rufus on Windows: choose the ISO, choose the USB device, and start the write. If Rufus asks, use DD Image mode.
+- balenaEtcher on Windows, macOS, or Linux: select the ISO, select the target device, and flash it.
+- `dd` on macOS or Linux if you are comfortable working from the terminal.
 
-## 3. Boot from the USB stick
+Example `dd` command:
 
-1. Plug the USB into the target computer.
-2. Turn it on and open the **boot menu** by tapping a key right away. Common keys:
+```sh
+sudo dd if=ascended-barron-groundtruth-os-*.iso of=/dev/sdX bs=4M status=progress conv=fsync
+```
 
-   | Brand | Boot menu key |
-   | --- | --- |
-   | Dell | F12 |
-   | HP | F9 (or Esc) |
-   | Lenovo | F12 (or Enter → F12) |
-   | Asus | F8 (or Esc) |
-   | Acer | F12 |
-   | MSI / Gigabyte | F11 |
-   | Generic | F12 / F11 / Esc |
+Replace `/dev/sdX` with the correct device. Double-check before you run it. Using the wrong device can erase the wrong disk.
 
-3. Choose your USB stick from the list.
+## 3. Boot from the device
 
-### If you don't see the USB / it won't boot
+1. Plug the prepared device into the computer.
+2. Turn the computer on and open the boot menu right away.
+3. Select the USB stick or external drive from the list.
 
-- **Disable Secure Boot.** This release does **not** support Secure Boot. Enter
-  your firmware setup (often **F2** or **Del** at power-on), find *Secure Boot*,
-  set it to **Disabled**, save, and try again.
-- Make sure "USB boot" is enabled and try both UEFI and Legacy/CSM modes.
+Common boot-menu keys:
+
+| Brand | Boot menu key |
+| --- | --- |
+| Dell | F12 |
+| HP | F9 or Esc |
+| Lenovo | F12 or Enter, then F12 |
+| Asus | F8 or Esc |
+| Acer | F12 |
+| MSI / Gigabyte | F11 |
+| Generic | F12, F11, or Esc |
+
+### If the device does not appear or will not boot
+
+- Disable Secure Boot. GroundTruth OS v1 does not support Secure Boot.
+- Make sure USB boot is enabled in firmware.
+- If your machine offers both UEFI and Legacy/CSM modes, try the other one.
 
 ## 4. First boot
 
-ABG-OS starts straight into the **dashboard** — there's **no login and no
-password**. It's a persistent OS on an external thumbdrive. When you're done
-you can shutdown and remove the disk and store it in a safe location, or take
-it with you to use in another computer without having to carry around a whole
-other computer.
+GroundTruth OS boots straight into the dashboard. There is no login screen and no password prompt by default.
 
-Take a look around:
-- The **weather ticker**, clock, and battery/volume indicators. I love the weather
-  channel. This is a nod to the 90's weather channel. When it was good.
-- Click on the sample projects to take a look. Or start a task, select it, open in
-  terminal button, install your desired AI (local LLM or cloud)
-  
-  **If you use a cloud AI provider, the cloud provider will still do their normal
-  logging that they do. But now, your local logs will fill up as you work too so
-  you can train or fine tune your OWN LLM that compliments how YOU work. Choose a
-  local LLM if you don't want a cloud provider to harvest your information as you
-  work.**
-  
-- **Chromium** and a **terminal** are available.
+The normal experience is a live boot from removable media, so you can try the system without touching your internal disk.
 
-> **Connecting to the internet:** use the Wi-Fi helper if you're not already
-> online. Some features (browser, weather) need a connection; the AI workflow
-> itself works offline once you've installed a local AI.
+Once the desktop appears, you can:
 
-## 5. Use the workflow (the heart of GroundTruth OS)
+- look through the sample projects,
+- open Chromium,
+- open a terminal,
+- connect to Wi-Fi if needed,
+- and start a new task.
 
-1. **Create a task** — give your project a name (e.g. *"Build a simple personal
-   webpage"*).
-2. **Select the task**, then click **Open Project Terminal**.
-3. The system **creates a project folder**, drops in a **`ground-truth.md`** named
-   for the task, and **opens a terminal inside that folder**. A banner explains
-   what happened.
-4. **Install your AI** (next section), start it in that folder, and tell it:
-   > "Read `ground-truth.md` and follow it."
+If you are offline, some parts of the interface such as the browser, weather, and update check will not work. The core project workflow can still work offline once you install a local AI tool.
 
-**`ground-truth.md` is the project's scaffolding for the AI — the AI reads it,
-Asks your desired outcome of the project, asks 25 questions about the project
-mulitple choice with it's recommendation for each question one at a time, and
-records decisions and progress there. Then the AI will reference the ground-truth.md
-file while working on the project. It divides projects into chunks with their own
-files and logs appropriate information in each chunk of the project. AI works best
-an organized scaffolding. That's what this operating system does automatically,
-and creates training data stored locally as you work. You don't have to mess with
-it.**
+## 5. Start a task
 
-### The sample projects
+This is the main workflow of the OS.
 
-- **Build a simple personal webpage** — *fresh* task. Click **Work with AI** to
-  watch the folder and `ground-truth.md` get created live.
-- **Add a feature to my dashboard** — the **self-modification** demo: the OS
-  improving itself through its own workflow. (Do this on an installed copy or with
-  backups.)
+1. Create a task and give it a name.
+2. Select that task in the dashboard.
+3. Open the project terminal for it.
 
-## 6. Install an AI CLI
+When you do that, GroundTruth OS:
 
-No AI is bundled — you choose. In the project terminal:
+1. creates a folder for the task,
+2. drops in a `ground-truth.md` file,
+3. opens a terminal in that folder,
+4. and leaves the rest to you and your AI tool.
 
-- **Claude Code**, or **any other AI CLI**, or a **local model** for a fully
-  offline, private loop.
-- Follow that tool's own install instructions, start it **in the project folder**,
-  and point it at `ground-truth.md`.
+The point is to start every project the same way: one folder, one project prompt file, one terminal in the right place.
 
-The installed system also boots straight to the dashboard — **no login and no
-password.** See the **Security model** section of the [README](../README.md): you
-can add a password or encryption yourself if you want them.
+## 6. Start your AI tool
 
----
+No AI tool is bundled with the OS. You choose what to run.
+
+In the project terminal, install or start the AI tool you want to use. That can be a cloud AI CLI, a local model, or another terminal-based assistant.
+
+Then tell it:
+
+`Read ground-truth.md and follow it.`
+
+That file is the starting point for the project. It gives the AI a place to read the task, capture decisions, and keep the work organized as the project grows.
+
+## 7. Understand the logging model
+
+GroundTruth OS writes its own workflow log to local files on your machine.
+
+That logging is part of GroundTruth OS itself. It is separate from any cloud provider you choose to use.
+
+If you connect to a hosted AI service, that provider may still retain prompts or usage data under its own policies. If you want the whole loop to stay local, use a local model.
+
+## 8. Sample projects
+
+The release includes a few sample projects so you can see the workflow immediately:
+
+- `Plan a 3-day weekend trip` — a completed example
+- `Build a simple personal webpage` — a fresh task to try live
+- `Add a feature to my dashboard` — the self-modification demo
+
+If you try the self-modification path, do it on an installed copy or keep backups. A live boot is easy to discard on reboot. A modified install is not.
+
+## 9. Optional external-drive install path
+
+The main experience is the live boot from removable media.
+
+If you want to keep a portable copy on an external drive, the repo also includes an advanced terminal installer:
+
+```sh
+sudo ai-os-install-to-disk
+```
+
+Use that carefully. It writes to a target disk and is intentionally not presented as a casual dashboard button.
+
+## 10. Updating
+
+GroundTruth OS includes an updater.
+
+From the dashboard, you can:
+
+- check for updates,
+- install the latest published release,
+- see the current version,
+- and undo the last update.
+
+The updater replaces the OS app files only. Your work in `~/workspace` is not touched by the updater.
+
+Older installs from before the updater can bootstrap it with:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/jackwayne234/Ascended-Barron-Groundtruth-OS/main/bootstrap-updater.sh | bash
+```
 
 ## Troubleshooting
 
-- **Black screen after boot:** wait a minute; on some hardware the graphics take a
-  moment. If it persists, your GPU may need different drivers — this is an
-  experimental release verified on limited hardware.
-- **No Wi-Fi:** open the Wi-Fi helper and select your network. Wired connections
-  come up automatically.
-  
-## Create a task to modify or troubleshoot your system. It's completely yours
+Black screen after boot:
+- Wait a minute first. Some hardware takes a little longer to bring up graphics.
+- If it stays black, your system may need different graphics support than this release currently provides.
 
-- **"Weather unavailable":** you're offline, or the weather component isn't
-  reachable — harmless, the rest still works. Or, create a task and use AI to fix
-  it.
+No Wi-Fi:
+- Open the Wi-Fi helper and connect manually.
+- Wired networking should come up automatically on most machines.
 
-This is a personal project shared as-is — **no support is promised**, but it's
-yours to fork and change however you like.
+Weather unavailable:
+- You are probably offline, or the weather source is unreachable.
+- The rest of the system can still work.
+
+## Security note
+
+GroundTruth OS is intentionally simple and intentionally open.
+
+- It boots straight to the dashboard.
+- There is no login prompt by default.
+- There is no password by default.
+- The disk is not encrypted by default.
+
+That makes it easy to boot and easy to understand, but it also means anyone with physical access to the machine can access the system.
+
+If you want a different trust model, you will need to add it yourself or fork the project.
+
+## Need more detail?
+
+For the product overview, privacy note, and build instructions, see the [README](../README.md).
+
+This is a personal project released publicly under MIT. No support is promised, but you are free to fork it and make it your own.
