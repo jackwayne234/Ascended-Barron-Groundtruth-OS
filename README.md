@@ -50,24 +50,25 @@ planning, decisions, steps, and progress.
 - The **dashboard** (tasks, the create-task → Work-with-AI loop, app launcher)
 - **Weather ticker**, battery indicator, volume control
 - **Chromium** and **lxterminal**
-- Automatic, **local-only** action logging with reasons, plus an **export** that
-  turns your work into AI fine-tuning data
+- Automatic, **local-only** action logging with reasons. This is a local file that
+  automatically records your interactions with AI and your workflow in a json
+  training format. Watch the amount of lines recorded as you work in the top right
+  corner of the dashboard. Once it reaches the amount of lines you want. You can
+  take that file and use it however you want for training your models.
+  
 - Three **sample projects** to learn from:
   - **Plan a 3-day weekend trip** — a *completed* example (filled `ground-truth.md`)
   - **Build a simple personal webpage** — a *fresh* task to start live
   - **Add a feature to my dashboard** — the self-modification demo
 - A tiny **sample training-data export** so you can see the format
 
-## Try it / install
+## Ran from a USB external hard drive
 
 1. **Download** the ISO from [Releases](../../releases).
 2. **Verify** it with the published `SHA256SUMS` (see the
    [Getting Started guide](docs/GETTING-STARTED.md)).
 3. **Flash** it to a USB stick (Rufus, balenaEtcher, or `dd`).
-4. **Boot** it — it comes up live so you can try it instantly. To keep it on a
-   portable external drive, use the guarded terminal installer.
-   Treat external-drive installs as advanced and destructive: they erase the
-   chosen drive after multiple confirmations.
+4. **Boot** it — it comes up live so you can use it instantly.
 
 Full step-by-step instructions (including BIOS/boot keys and Secure Boot) are in
 the **[Getting Started guide](docs/GETTING-STARTED.md)**.
