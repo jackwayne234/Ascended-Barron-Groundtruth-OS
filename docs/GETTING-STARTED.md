@@ -93,11 +93,13 @@ Take a look around:
   channel. This is a nod to the 90's weather channel. When it was good.
 - Click on the sample projects to take a look. Or start a task, select it, open in
   terminal button, install your desired AI (local LLM or cloud)
+  
   **If you use a cloud AI provider, the cloud provider will still do their normal
   logging that they do. But now, your local logs will fill up as you work too so
   you can train or fine tune your OWN LLM that compliments how YOU work. Choose a
   local LLM if you don't want a cloud provider to harvets your information as you
   work.**
+  
 - **Chromium** and a **terminal** are available.
 
 > **Connecting to the internet:** use the Wi-Fi helper if you're not already
@@ -115,7 +117,7 @@ Take a look around:
 4. **Install your AI** (next section), start it in that folder, and tell it:
    > "Read `ground-truth.md` and follow it."
 
-`ground-truth.md` is the project's scaffolding for the AI — the AI reads it,
+**`ground-truth.md` is the project's scaffolding for the AI — the AI reads it,
 Asks your desired outcome of the project, asks 25 questions about the project
 mulitple choice with it's recommendation for each question one at a time, and
 records decisions and progress there. Then the AI will reference the ground-truth.md
@@ -123,7 +125,7 @@ file while working on the project. It divides projects into chunks with their ow
 files and logs appropriate information in each chunk of the project. AI works best
 an organized scaffolding. That's what this operating system does automatically,
 and creates training data stored locally as you work. You don't have to mess with
-it. 
+it.**
 
 ### The sample projects
 
