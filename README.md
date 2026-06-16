@@ -1,10 +1,9 @@
 # Ascended Barron: GroundTruth OS
 
-**Your AI workflow operating system.**
+**This a automatic scaffolding for using AI with local automatic logging of your workflow for training. ZERO BLOAT, ALL FILES AND AUTOMATIC TRAINING DATA REMAIN LOCAL**
 
 > ⚠️ **EXPERIMENTAL — early release.** This is a personal project, shared freely.
-> It has been verified on one laptop and (during development) a VM. **Try it in a
-> VM or on a spare machine first — don't run it on your only computer.**
+> It's ran from an any external hard drive. Download the ISO. Create a bootable disk from it. Plug it in. Restart your computer and select the external hard drive. 
 
 *Ascended Barron: GroundTruth OS is an Arch-based Linux distribution with an
 AI-native project workflow built in.*
