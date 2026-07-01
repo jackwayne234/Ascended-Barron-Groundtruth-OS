@@ -213,3 +213,15 @@ Current maintenance stance:
 - No support is promised.
 
 If the project is useful to you, fork it and make it your own.
+
+## The experiment behind this
+
+This OS is part of a live, public experiment: **can AI agents earn back their own
+$200/month cost?** Everything on this GitHub was built AI-assisted using the
+[ground-truth.md method](https://github.com/buckbuilds/ground-truth-md) this OS is
+designed around — and I post the real numbers (including the zeros) on
+[TikTok](https://www.tiktok.com/@buckrvepjvy) as the journey unfolds.
+
+Don't want a whole OS? The method is just
+[one markdown file](https://github.com/buckbuilds/ground-truth-md) — it works with
+any AI tool you already use.
